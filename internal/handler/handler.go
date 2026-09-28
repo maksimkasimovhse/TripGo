@@ -13,12 +13,17 @@ import (
 
 type Handler struct {
 	api.Unimplemented
+	txm          TxManager
 	db           *pgxpool.Pool
 	queryTimeout time.Duration
 }
 
-func New(db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
-	return &Handler{db: db, queryTimeout: queryTimeout}
+func New(txm TxManager, db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
+	return &Handler{txm: txm, db: db, queryTimeout: queryTimeout}
+}
+
+type TxManager interface {
+	Do(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {

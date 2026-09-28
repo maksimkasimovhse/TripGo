@@ -9,10 +9,12 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/config"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/handler"
+	"github.com/maksimkasimovhse/TripGo/internal/txmanager"
 )
 
 func main() {
@@ -49,7 +51,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	h := handler.New(pool, cfgEnv.QueryTimeout)
+	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
+	h := handler.New(txm, pool, cfgEnv.QueryTimeout)
 
 	router := chi.NewRouter()
 	api.HandlerFromMux(h, router)
