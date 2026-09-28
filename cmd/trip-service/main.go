@@ -14,6 +14,7 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/config"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/handler"
+	"github.com/maksimkasimovhse/TripGo/internal/repository"
 	"github.com/maksimkasimovhse/TripGo/internal/txmanager"
 )
 
@@ -29,7 +30,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Wrong parsing from .env: %v", err)
 	}
-
 	cfg, err := pgxpool.ParseConfig(cfgEnv.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to parse database config (DATABASE_URL): %v", err)
@@ -51,8 +51,11 @@ func main() {
 	}
 	defer pool.Close()
 
+	tripRepo := repository.NewTripRepository(pool, cfgEnv.QueryTimeout)
+	historyRepo := repository.NewStatusHistoryRepository(pool, cfgEnv.QueryTimeout)
+
 	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
-	h := handler.New(txm, pool, cfgEnv.QueryTimeout)
+	h := handler.New(txm, tripRepo, historyRepo, pool, cfgEnv.QueryTimeout)
 
 	router := chi.NewRouter()
 	api.HandlerFromMux(h, router)

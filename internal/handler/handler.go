@@ -2,24 +2,26 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/repository"
 )
 
 type Handler struct {
 	api.Unimplemented
 	txm          TxManager
+	tripRepo     *repository.TripRepository
+	historyRepo  *repository.StatusHistoryRepository
 	db           *pgxpool.Pool
 	queryTimeout time.Duration
 }
 
-func New(txm TxManager, db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
-	return &Handler{txm: txm, db: db, queryTimeout: queryTimeout}
+func New(txm TxManager, tripRepo *repository.TripRepository, historyRepo *repository.StatusHistoryRepository, db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
+	return &Handler{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, db: db, queryTimeout: queryTimeout}
 }
 
 type TxManager interface {
@@ -40,12 +42,4 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("failed to write response: %v", err)
-	}
 }
