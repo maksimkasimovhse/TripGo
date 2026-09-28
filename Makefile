@@ -3,7 +3,7 @@ export
 
 MIGRATIONS_DIR := migrations
 
-.PHONY: generate migrate migrate-down run
+.PHONY: generate migrate migrate-down migrate-status run test
 
 generate:
 	go tool oapi-codegen \
@@ -19,8 +19,11 @@ migrate:
 migrate-down:
 	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" down
 
+migrate-status:
+	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
+
 run:
-	go run ./cmd/trip-service/main.go
+	go run ./cmd/trip-service
 
 test:
 	go test -race ./...

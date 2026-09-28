@@ -58,7 +58,10 @@ func main() {
 	h := handler.New(txm, tripRepo, historyRepo, pool, cfgEnv.QueryTimeout)
 
 	router := chi.NewRouter()
-	api.HandlerFromMux(h, router)
+	api.HandlerWithOptions(h, api.ChiServerOptions{
+		BaseRouter:       router,
+		ErrorHandlerFunc: handler.ParamErrorHandler,
+	})
 
 	srv := &http.Server{
 		Addr:              cfgEnv.HTTPAddr,
@@ -81,6 +84,7 @@ func main() {
 	defer shutdownCancel()
 
 	if err = srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown timed out, some requests were not completed: %v", err)
+		log.Printf("graceful shutdown timed out, closing remaining connections: %v", err)
+		_ = srv.Close()
 	}
 }

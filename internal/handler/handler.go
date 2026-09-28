@@ -11,8 +11,9 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/repository"
 )
 
+var _ api.ServerInterface = (*Handler)(nil)
+
 type Handler struct {
-	api.Unimplemented
 	txm          TxManager
 	tripRepo     *repository.TripRepository
 	historyRepo  *repository.StatusHistoryRepository

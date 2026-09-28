@@ -12,6 +12,8 @@ import (
 )
 
 type Config struct {
+	LogLevel string
+
 	HTTPAddr          string
 	ShutdownTimeout   time.Duration
 	ReadHeaderTimeout time.Duration
@@ -48,6 +50,13 @@ func Load() (Config, error) {
 		MaxConnLifetime: getDuration("DATABASE_MAX_CONN_LIFETIME", 30*time.Minute, &errs),
 		ConnectTimeout:  getDuration("DATABASE_CONNECT_TIMEOUT", 5*time.Second, &errs),
 		QueryTimeout:    getDuration("DATABASE_QUERY_TIMEOUT", 3*time.Second, &errs),
+	}
+
+	cfg.LogLevel = getString("LOG_LEVEL", "info")
+	switch cfg.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		errs = append(errs, fmt.Errorf("LOG_LEVEL: must be debug, info, warn or error, got %q", cfg.LogLevel))
 	}
 
 	if cfg.DatabaseURL == "" {

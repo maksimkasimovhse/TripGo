@@ -45,7 +45,18 @@ func scanTrip(row pgx.Row) (domain.Trip, error) {
 		&t.Price, &t.Status,
 		&t.StartedAt, &t.FinishedAt, &t.CreatedAt, &t.UpdatedAt,
 	)
-	return t, err
+	if err != nil {
+		return t, err
+	}
+
+	t.StartedAt = t.StartedAt.UTC()
+	t.CreatedAt = t.CreatedAt.UTC()
+	t.UpdatedAt = t.UpdatedAt.UTC()
+	if t.FinishedAt != nil {
+		f := t.FinishedAt.UTC()
+		t.FinishedAt = &f
+	}
+	return t, nil
 }
 
 func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Trip, error) {
