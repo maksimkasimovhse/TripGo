@@ -1,4 +1,4 @@
-module github.com/maksimkasimovhse/TripGo.git
+module github.com/maksimkasimovhse/TripGo
 
 go 1.27.1
 
