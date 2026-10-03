@@ -53,15 +53,17 @@ func main() {
 
 	tripRepo := repository.NewTripRepository(pool, cfgEnv.QueryTimeout)
 	historyRepo := repository.NewStatusHistoryRepository(pool, cfgEnv.QueryTimeout)
+	idempocyKeyRepo := repository.NewIdempocyKeyRepository(pool, cfgEnv.QueryTimeout)
 
 	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
-	h := handler.New(txm, tripRepo, historyRepo, pool, cfgEnv.QueryTimeout)
+	h := handler.New(txm, tripRepo, historyRepo, idempocyKeyRepo, pool, cfgEnv.QueryTimeout)
 
 	router := chi.NewRouter()
-	api.HandlerWithOptions(h, api.ChiServerOptions{
-		BaseRouter:       router,
-		ErrorHandlerFunc: handler.ParamErrorHandler,
-	})
+	api.HandlerWithOptions(&handler.WithIdempotency{ServerInterface: h, Mw: h.IdempotencyKeyMiddleware},
+		api.ChiServerOptions{
+			BaseRouter:       router,
+			ErrorHandlerFunc: handler.ParamErrorHandler,
+		})
 
 	srv := &http.Server{
 		Addr:              cfgEnv.HTTPAddr,

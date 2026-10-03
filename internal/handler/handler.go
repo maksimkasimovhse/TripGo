@@ -11,18 +11,21 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/repository"
 )
 
-var _ api.ServerInterface = (*Handler)(nil)
-
 type Handler struct {
-	txm          TxManager
-	tripRepo     *repository.TripRepository
-	historyRepo  *repository.StatusHistoryRepository
-	db           *pgxpool.Pool
-	queryTimeout time.Duration
+	txm                TxManager
+	tripRepo           *repository.TripRepository
+	historyRepo        *repository.StatusHistoryRepository
+	idempotencyKeyRepo *repository.IdempocyKeyRepository
+	db                 *pgxpool.Pool
+	queryTimeout       time.Duration
 }
 
-func New(txm TxManager, tripRepo *repository.TripRepository, historyRepo *repository.StatusHistoryRepository, db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
-	return &Handler{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, db: db, queryTimeout: queryTimeout}
+func New(txm TxManager,
+	tripRepo *repository.TripRepository,
+	historyRepo *repository.StatusHistoryRepository,
+	idempotencyKeyRepo *repository.IdempocyKeyRepository,
+	db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
+	return &Handler{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, idempotencyKeyRepo: idempotencyKeyRepo, db: db, queryTimeout: queryTimeout}
 }
 
 type TxManager interface {
