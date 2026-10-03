@@ -15,7 +15,7 @@ type Handler struct {
 	txm                TxManager
 	tripRepo           *repository.TripRepository
 	historyRepo        *repository.StatusHistoryRepository
-	idempotencyKeyRepo *repository.IdempocyKeyRepository
+	idempotencyKeyRepo *repository.IdempotencyKeyRepository
 	db                 *pgxpool.Pool
 	queryTimeout       time.Duration
 }
@@ -23,7 +23,7 @@ type Handler struct {
 func New(txm TxManager,
 	tripRepo *repository.TripRepository,
 	historyRepo *repository.StatusHistoryRepository,
-	idempotencyKeyRepo *repository.IdempocyKeyRepository,
+	idempotencyKeyRepo *repository.IdempotencyKeyRepository,
 	db *pgxpool.Pool, queryTimeout time.Duration) *Handler {
 	return &Handler{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, idempotencyKeyRepo: idempotencyKeyRepo, db: db, queryTimeout: queryTimeout}
 }

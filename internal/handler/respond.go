@@ -2,11 +2,15 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/maksimkasimovhse/TripGo/internal/domain"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/repository"
 )
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -40,4 +44,27 @@ func writeInvalidRequest(w http.ResponseWriter, r *http.Request, detail string) 
 
 func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	writeInvalidRequest(w, r, err.Error())
+}
+
+func writeCreateTripResponse(w http.ResponseWriter, r *http.Request, tripRepo *repository.TripRepository, status int, tripID uuid.UUID) {
+	trip, err := tripRepo.GetByID(r.Context(), tripID)
+	if err != nil {
+		if errors.Is(err, domain.ErrTripNotFound) {
+			log.Printf("idempotent response: trip %s marked completed but not found: %v", tripID, err)
+			writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
+			return
+		}
+		log.Printf("load trip for idempotent response: %v", err)
+		writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
+		return
+	}
+
+	w.Header().Set("Location", tripLocation(trip.ID))
+	writeJSON(w, status, toAPITrip(trip))
+}
+
+const tripsPath = "/api/v1/trips/"
+
+func tripLocation(id uuid.UUID) string {
+	return tripsPath + id.String()
 }

@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/config"
@@ -53,13 +54,14 @@ func main() {
 
 	tripRepo := repository.NewTripRepository(pool, cfgEnv.QueryTimeout)
 	historyRepo := repository.NewStatusHistoryRepository(pool, cfgEnv.QueryTimeout)
-	idempocyKeyRepo := repository.NewIdempocyKeyRepository(pool, cfgEnv.QueryTimeout)
+	idempotencyKeyRepo := repository.NewIdempotencyKeyRepository(pool, cfgEnv.QueryTimeout)
 
 	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
-	h := handler.New(txm, tripRepo, historyRepo, idempocyKeyRepo, pool, cfgEnv.QueryTimeout)
+	h := handler.New(txm, tripRepo, historyRepo, idempotencyKeyRepo, pool, cfgEnv.QueryTimeout)
 
 	router := chi.NewRouter()
-	api.HandlerWithOptions(&handler.WithIdempotency{ServerInterface: h, Mw: h.IdempotencyKeyMiddleware},
+	router.Use(middleware.Recoverer)
+	api.HandlerWithOptions(handler.NewWithIdempotency(h),
 		api.ChiServerOptions{
 			BaseRouter:       router,
 			ErrorHandlerFunc: handler.ParamErrorHandler,

@@ -3,10 +3,8 @@ package handler
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -16,79 +14,6 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/domain"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
-
-type WithIdempotency struct {
-	api.ServerInterface
-	Mw func(http.Handler) http.Handler
-}
-
-type ctxKey string
-
-const tripIDKey ctxKey = "tripID"
-
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (s *statusRecorder) WriteHeader(code int) {
-	s.status = code
-	s.ResponseWriter.WriteHeader(code)
-}
-
-func (h *Handler) IdempotencyKeyMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, err := uuid.Parse(r.Header.Get("Idempotency-Key"))
-		if err != nil {
-			writeInvalidRequest(w, r, "Idempotency-Key header must be a UUID")
-			return
-		}
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
-		if err != nil {
-			writeInvalidRequest(w, r, "Request body is too large or unreadable")
-			return
-		}
-		r.Body = io.NopCloser(bytes.NewReader(body))
-		hash := sha256.Sum256(body)
-
-		tripID := uuid.New()
-		inserted, err := h.idempotencyKeyRepo.TryInsert(r.Context(), key, hash, tripID)
-		if err != nil {
-			log.Println(err)
-			writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
-			return
-		}
-		if !inserted {
-			savedTripID, savedHash, err := h.idempotencyKeyRepo.Get(r.Context(), key)
-			if err != nil {
-				log.Printf("idempotency get: %v", err)
-				writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
-				return
-			}
-			if savedHash != hash {
-				http.Error(w, "Idempotency key conflict: body mismatch", http.StatusConflict)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("X-Cache-Lookup", "HIT - Idempotent Request")
-			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, `{"status":"success","message":"Дубликат запроса обработан","trip_id":"%s"}`, savedTripID)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), tripIDKey, tripID)
-		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-
-		next.ServeHTTP(rec, r.WithContext(ctx))
-
-		if rec.status >= 400 {
-			if err := h.idempotencyKeyRepo.Delete(context.WithoutCancel(r.Context()), key); err != nil {
-				log.Printf("idempotency delete: %v", err)
-			}
-		}
-	})
-
-}
 
 func toAPITrip(t domain.Trip) api.Trip {
 	return api.Trip{
@@ -152,12 +77,6 @@ func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripId api.
 	writeJSON(w, http.StatusOK, toAPITrip(trip))
 }
 
-func (w *WithIdempotency) CreateTrip(rw http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
-	w.Mw(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		w.ServerInterface.CreateTrip(rw, r, params)
-	})).ServeHTTP(rw, r)
-}
-
 func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err != nil {
@@ -219,7 +138,7 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 		return
 	}
 
-	w.Header().Set("Location", "/api/v1/trips/"+trip.ID.String())
+	w.Header().Set("Location", tripLocation(trip.ID))
 	writeJSON(w, http.StatusCreated, toAPITrip(trip))
 }
 
@@ -239,7 +158,7 @@ func validateTripData(d api.TripData) string {
 	return ""
 }
 
-const maxBodyBytes = 1 << 20 // 1 МБ
+const maxBodyBytes = 1 << 20
 
 func checkRequiredFields(body []byte) string {
 	var top map[string]json.RawMessage
