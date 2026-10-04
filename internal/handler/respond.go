@@ -43,7 +43,24 @@ func writeInvalidRequest(w http.ResponseWriter, r *http.Request, detail string) 
 }
 
 func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	writeInvalidRequest(w, r, err.Error())
+	log.Printf("invalid request parameter: %s %s: %v", r.Method, r.URL.Path, err)
+
+	var (
+		invalidFormat  *api.InvalidParamFormatError
+		requiredParam  *api.RequiredParamError
+		requiredHeader *api.RequiredHeaderError
+	)
+
+	switch {
+	case errors.As(err, &invalidFormat):
+		writeInvalidRequest(w, r, "parameter "+invalidFormat.ParamName+" has invalid format")
+	case errors.As(err, &requiredParam):
+		writeInvalidRequest(w, r, "parameter "+requiredParam.ParamName+" is required")
+	case errors.As(err, &requiredHeader):
+		writeInvalidRequest(w, r, "header "+requiredHeader.ParamName+" is required")
+	default:
+		writeInvalidRequest(w, r, "invalid request parameters")
+	}
 }
 
 func writeCreateTripResponse(w http.ResponseWriter, r *http.Request, tripRepo *repository.TripRepository, status int, tripID uuid.UUID) {
