@@ -8,6 +8,6 @@ import (
 
 func main() {
 	if err := app.Run(); err != nil {
-		log.Fatal("service stopped: %w", err)
+		log.Fatalf("service stopped: %v", err)
 	}
 }

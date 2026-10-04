@@ -2,8 +2,11 @@
 export
 
 MIGRATIONS_DIR := migrations
+IMAGE ?= trip-service:local
+DOCKER_NETWORK ?= kind
+DOCKER_DATABASE_URL ?= postgres://tripgo:tripgo@tripgo-local-control-plane:30103/tripgo?sslmode=disable
 
-.PHONY: generate migrate migrate-down migrate-status run test
+.PHONY: generate migrate migrate-down migrate-status run test docker-build docker-run
 
 generate:
 	go tool oapi-codegen \
@@ -27,3 +30,11 @@ run:
 
 test:
 	go test -race ./...
+
+docker-build:
+	docker build -t $(IMAGE) .
+
+docker-run:
+	docker run --rm -p 8080:8080 --network $(DOCKER_NETWORK) \
+	  -e DATABASE_URL='$(DOCKER_DATABASE_URL)' \
+	  $(IMAGE)
