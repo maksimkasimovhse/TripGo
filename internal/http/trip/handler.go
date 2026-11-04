@@ -13,10 +13,10 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), h.queryTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), h.readyTimeout)
 	defer cancel()
 
-	if err := h.db.Ping(ctx); err != nil {
+	if err := h.readiness.Ping(ctx); err != nil {
 		log.Printf("db ping failed: %v", err)
 		WriteJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return

@@ -38,11 +38,6 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 		return
 	}
 
-	if msg := validateTripData(req); msg != "" {
-		WriteInvalidRequest(w, r, msg)
-		return
-	}
-
 	tripID, ok := r.Context().Value(TripIDKey).(uuid.UUID)
 	if !ok {
 		tripID = uuid.New()
@@ -50,6 +45,12 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 
 	input := toCreateInput(req, tripID)
 	tripForCreate, err := h.createUsecase.Create(r.Context(), input)
+
+	var validationErr *trip.ValidationError
+	if errors.As(err, &validationErr) {
+		WriteInvalidRequest(w, r, validationErr.Error())
+		return
+	}
 
 	if errors.Is(err, trip.ErrDriverBusy) {
 		WriteProblem(w, r, http.StatusConflict, "driver_busy",

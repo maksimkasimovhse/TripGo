@@ -2,26 +2,7 @@ package trip
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
-
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
-
-func validateTripData(d api.TripData) string {
-	switch {
-	case d.UserId == uuid.Nil:
-		return "user_id is required"
-	case d.DriverId == uuid.Nil:
-		return "driver_id is required"
-	case !validCoordinates(d.StartPoint):
-		return "start_point is out of range"
-	case !validCoordinates(d.EndPoint):
-		return "end_point is out of range"
-	case d.Price < 0:
-		return "price must be >= 0"
-	}
-	return ""
-}
 
 const MaxBodyBytes = 1 << 20
 
@@ -47,9 +28,4 @@ func checkRequiredFields(body []byte) string {
 		}
 	}
 	return ""
-}
-
-func validCoordinates(c api.Coordinates) bool {
-	return c.Latitude >= -90 && c.Latitude <= 90 &&
-		c.Longitude >= -180 && c.Longitude <= 180
 }

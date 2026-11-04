@@ -2,6 +2,7 @@ package trip
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
@@ -12,10 +13,17 @@ type Handler struct {
 	createUsecase createUsecase
 	getUsecase    getUsecase
 	finishUsecase finishUsecase
+
+	readiness    readinessChecker
+	readyTimeout time.Duration
 }
 
-func New(Create createUsecase, get getUsecase, finish finishUsecase) *Handler {
-	return &Handler{createUsecase: Create, getUsecase: get, finishUsecase: finish}
+func New(Create createUsecase, get getUsecase, finish finishUsecase, readiness readinessChecker, readyTimeout time.Duration) *Handler {
+	return &Handler{createUsecase: Create, getUsecase: get, finishUsecase: finish, readiness: readiness, readyTimeout: readyTimeout}
+}
+
+type readinessChecker interface {
+	Ping(ctx context.Context) error
 }
 
 type createUsecase interface {

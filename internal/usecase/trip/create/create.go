@@ -45,6 +45,10 @@ func (u *Usecase) Create(ctx context.Context, input Input) (trip.Trip, error) {
 		StartedAt:      time.Now().UTC().Truncate(time.Microsecond),
 	}
 
+	if err := tripForCreate.Validate(); err != nil {
+		return trip.Trip{}, err
+	}
+
 	err := u.txm.Do(ctx, func(ctx context.Context) error {
 		if err := u.tripRepo.Create(ctx, tripForCreate); err != nil {
 			return err

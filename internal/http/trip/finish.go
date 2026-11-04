@@ -1,32 +1,16 @@
 package trip
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripId api.TripId) {
-	var tripForFinish trip.Trip
-	err := h.txm.Do(r.Context(), func(ctx context.Context) error {
-		var err error
-		finishedAt := time.Now().UTC()
-		tripForFinish, err = h.tripRepo.Finish(ctx, tripId, finishedAt)
-		if err != nil {
-			return err
-		}
-		from := trip.StatusActive
-		err = h.historyRepo.Add(ctx, tripId, &from, trip.StatusCompleted, finishedAt)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	tripForFinish, err := h.finishUsecase.Finish(r.Context(), tripId)
 
 	if errors.Is(err, trip.ErrTripNotFound) {
 		WriteProblem(w, r, http.StatusNotFound, "trip_not_found", "Trip not found", "Trip was not found")
