@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/maksimkasimovhse/TripGo/internal/domain"
-	"github.com/maksimkasimovhse/TripGo/internal/txmanager"
+	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
+	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 )
 
 type StatusHistoryRepository struct {
@@ -27,7 +27,7 @@ func NewStatusHistoryRepository(pool *pgxpool.Pool, queryTimeout time.Duration) 
 	}
 }
 
-func (r *StatusHistoryRepository) Add(ctx context.Context, tripID uuid.UUID, from *domain.Status, to domain.Status, changedAt time.Time) error {
+func (r *StatusHistoryRepository) Add(ctx context.Context, tripID uuid.UUID, from *trip.Status, to trip.Status, changedAt time.Time) error {
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 

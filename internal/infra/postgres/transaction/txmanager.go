@@ -1,4 +1,4 @@
-package txmanager
+package transaction
 
 import (
 	"context"

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/maksimkasimovhse/TripGo/internal/txmanager"
+	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 )
 
 type IdempotencyStatus string

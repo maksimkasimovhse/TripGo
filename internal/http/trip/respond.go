@@ -1,4 +1,4 @@
-package handler
+package trip
 
 import (
 	"encoding/json"
@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/maksimkasimovhse/TripGo/internal/domain"
+	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/repository"
+	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 )
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -21,7 +21,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-func writeProblem(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
+func WriteProblem(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
 	instance := r.URL.Path
 	p := api.Problem{
 		Type:     "https://tripgo.example/problems/" + strings.ReplaceAll(code, "_", "-"),
@@ -38,8 +38,8 @@ func writeProblem(w http.ResponseWriter, r *http.Request, status int, code, titl
 	}
 }
 
-func writeInvalidRequest(w http.ResponseWriter, r *http.Request, detail string) {
-	writeProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
+func WriteInvalidRequest(w http.ResponseWriter, r *http.Request, detail string) {
+	WriteProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
 }
 
 func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
@@ -53,31 +53,31 @@ func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 	switch {
 	case errors.As(err, &invalidFormat):
-		writeInvalidRequest(w, r, "parameter "+invalidFormat.ParamName+" has invalid format")
+		WriteInvalidRequest(w, r, "parameter "+invalidFormat.ParamName+" has invalid format")
 	case errors.As(err, &requiredParam):
-		writeInvalidRequest(w, r, "parameter "+requiredParam.ParamName+" is required")
+		WriteInvalidRequest(w, r, "parameter "+requiredParam.ParamName+" is required")
 	case errors.As(err, &requiredHeader):
-		writeInvalidRequest(w, r, "header "+requiredHeader.ParamName+" is required")
+		WriteInvalidRequest(w, r, "header "+requiredHeader.ParamName+" is required")
 	default:
-		writeInvalidRequest(w, r, "invalid request parameters")
+		WriteInvalidRequest(w, r, "invalid request parameters")
 	}
 }
 
-func writeCreateTripResponse(w http.ResponseWriter, r *http.Request, tripRepo *repository.TripRepository, status int, tripID uuid.UUID) {
-	trip, err := tripRepo.GetByID(r.Context(), tripID)
+func WriteCreateTripResponse(w http.ResponseWriter, r *http.Request, tripRepo *repository.TripRepository, status int, tripID uuid.UUID) {
+	tripScan, err := tripRepo.GetByID(r.Context(), tripID)
 	if err != nil {
-		if errors.Is(err, domain.ErrTripNotFound) {
+		if errors.Is(err, trip.ErrTripNotFound) {
 			log.Printf("idempotent response: trip %s marked completed but not found: %v", tripID, err)
-			writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
+			WriteProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
 			return
 		}
 		log.Printf("load trip for idempotent response: %v", err)
-		writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
+		WriteProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
 		return
 	}
 
-	w.Header().Set("Location", tripLocation(trip.ID))
-	writeJSON(w, status, toAPITrip(trip))
+	w.Header().Set("Location", tripLocation(tripScan.ID))
+	WriteJSON(w, status, toAPITrip(tripScan))
 }
 
 const tripsPath = "/api/v1/trips/"

@@ -1,4 +1,4 @@
-package app
+package container
 
 import (
 	"context"
@@ -14,9 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/config"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/handler"
-	"github.com/maksimkasimovhse/TripGo/internal/repository"
-	"github.com/maksimkasimovhse/TripGo/internal/txmanager"
+	"github.com/maksimkasimovhse/TripGo/internal/http/idempotency"
+	handler "github.com/maksimkasimovhse/TripGo/internal/http/trip"
+	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 )
 
 func Run() error {
@@ -62,7 +63,7 @@ func Run() error {
 
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
-	api.HandlerWithOptions(handler.NewWithIdempotency(h),
+	api.HandlerWithOptions(idempotency.NewWithIdempotency(h),
 		api.ChiServerOptions{
 			BaseRouter:       router,
 			ErrorHandlerFunc: handler.ParamErrorHandler,

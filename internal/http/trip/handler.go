@@ -1,4 +1,4 @@
-package handler
+package trip
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/repository"
+	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 )
 
 type Handler struct {
@@ -17,7 +17,7 @@ type Handler struct {
 	historyRepo        *repository.StatusHistoryRepository
 	idempotencyKeyRepo *repository.IdempotencyKeyRepository
 	db                 *pgxpool.Pool
-	queryTimeout       time.Duration
+	queryTimeout       time.Duration //юзкейсы
 }
 
 func New(txm TxManager,
@@ -33,7 +33,7 @@ type TxManager interface {
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
 
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +42,8 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.db.Ping(ctx); err != nil {
 		log.Printf("db ping failed: %v", err)
-		writeJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
+		WriteJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return
 	}
-	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
