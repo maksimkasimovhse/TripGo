@@ -5,11 +5,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/trip-service ./cmd/trip-service
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/service ./cmd/service
 
 FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=builder /out/trip-service /trip-service
+COPY --from=builder /out/service /service
 
 USER 65532:65532
 EXPOSE 8080
-ENTRYPOINT ["/trip-service"]
+ENTRYPOINT ["/service"]

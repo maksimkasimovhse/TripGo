@@ -1,8 +1,10 @@
 package trip
 
 import (
+	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 )
 
 func toAPITrip(t trip.Trip) api.Trip {
@@ -16,5 +18,18 @@ func toAPITrip(t trip.Trip) api.Trip {
 		Status:     api.TripStatus(t.Status),
 		StartedAt:  t.StartedAt,
 		FinishedAt: t.FinishedAt,
+	}
+}
+
+func toCreateInput(req api.TripData, tripID uuid.UUID) create.Input {
+	return create.Input{
+		ID:             tripID,
+		UserID:         req.UserId,
+		DriverID:       req.DriverId,
+		StartLatitude:  req.StartPoint.Latitude,
+		StartLongitude: req.StartPoint.Longitude,
+		EndLatitude:    req.EndPoint.Latitude,
+		EndLongitude:   req.EndPoint.Longitude,
+		Price:          req.Price,
 	}
 }

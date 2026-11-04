@@ -2,19 +2,21 @@ package trip
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
+
+type contextKey struct{}
+
+var TripIDKey = contextKey{}
 
 func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
@@ -41,29 +43,13 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 		return
 	}
 
-	tripID, ok := r.Context().Value(tripIDKey).(uuid.UUID)
+	tripID, ok := r.Context().Value(TripIDKey).(uuid.UUID)
 	if !ok {
 		tripID = uuid.New()
 	}
-	tripForCreate := trip.Trip{
-		ID:             tripID,
-		UserID:         req.UserId,
-		DriverID:       req.DriverId,
-		StartLatitude:  req.StartPoint.Latitude,
-		StartLongitude: req.StartPoint.Longitude,
-		EndLatitude:    req.EndPoint.Latitude,
-		EndLongitude:   req.EndPoint.Longitude,
-		Price:          req.Price,
-		Status:         trip.StatusActive,
-		StartedAt:      time.Now().UTC().Truncate(time.Microsecond),
-	}
 
-	err = h.txm.Do(r.Context(), func(ctx context.Context) error {
-		if err := h.tripRepo.Create(ctx, tripForCreate); err != nil {
-			return err
-		}
-		return h.historyRepo.Add(ctx, tripForCreate.ID, nil, trip.StatusActive, tripForCreate.StartedAt)
-	})
+	input := toCreateInput(req, tripID)
+	tripForCreate, err := h.createUsecase.Create(r.Context(), input)
 
 	if errors.Is(err, trip.ErrDriverBusy) {
 		WriteProblem(w, r, http.StatusConflict, "driver_busy",

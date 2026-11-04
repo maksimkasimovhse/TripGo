@@ -26,7 +26,7 @@ migrate-status:
 	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
 
 run:
-	go run ./cmd/trip-service
+	go run ./cmd/service
 
 test:
 	go test -race ./...
