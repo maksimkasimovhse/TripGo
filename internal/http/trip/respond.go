@@ -1,6 +1,7 @@
 package trip
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -10,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) {
@@ -63,8 +63,12 @@ func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
-func WriteCreateTripResponse(w http.ResponseWriter, r *http.Request, tripRepo *repository.TripRepository, status int, tripID uuid.UUID) {
-	tripScan, err := tripRepo.GetByID(r.Context(), tripID)
+type tripGetter interface {
+	Get(ctx context.Context, id uuid.UUID) (trip.Trip, error)
+}
+
+func WriteCreateTripResponse(w http.ResponseWriter, r *http.Request, getUsecase tripGetter, status int, tripID uuid.UUID) {
+	tripScan, err := getUsecase.Get(r.Context(), tripID)
 	if err != nil {
 		if errors.Is(err, trip.ErrTripNotFound) {
 			log.Printf("idempotent response: trip %s marked completed but not found: %v", tripID, err)

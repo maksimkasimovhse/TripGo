@@ -18,6 +18,7 @@ import (
 	handler "github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
+	idempotencyUseCase "github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
@@ -66,12 +67,19 @@ func Run() error {
 	create := create.New(txm, tripRepo, historyRepo)
 	get := get.New(tripRepo)
 	finish := finish.New(txm, tripRepo, historyRepo)
+	idempotencyUC := idempotencyUseCase.New(idempotencyKeyRepo)
 
 	h := handler.New(&create, &get, &finish, pool, cfgEnv.QueryTimeout)
 
+	decorator := idempotency.NewWithIdempotency(
+		h,
+		&idempotencyUC,
+		&get,
+	)
+
 	router := chi.NewRouter()
 	router.Use(middleware.Recoverer)
-	api.HandlerWithOptions(idempotency.NewWithIdempotency(h),
+	api.HandlerWithOptions(decorator,
 		api.ChiServerOptions{
 			BaseRouter:       router,
 			ErrorHandlerFunc: handler.ParamErrorHandler,

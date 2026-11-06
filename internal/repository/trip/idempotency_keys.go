@@ -11,17 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	"github.com/maksimkasimovhse/TripGo/internal/model"
 )
-
-type IdempotencyStatus string
-
-const (
-	IdempotencyStatusProcessing IdempotencyStatus = "processing"
-	IdempotencyStatusCompleted  IdempotencyStatus = "completed"
-)
-
-var ErrKeyNotFound = errors.New("idempotency key not found")
 
 type IdempotencyKeyRepository struct {
 	pool         *pgxpool.Pool
@@ -67,7 +60,7 @@ func (r *IdempotencyKeyRepository) TryInsert(ctx context.Context, id uuid.UUID, 
 	return false, nil
 }
 
-func (r *IdempotencyKeyRepository) Get(ctx context.Context, key uuid.UUID) (uuid.UUID, [32]byte, IdempotencyStatus, error) {
+func (r *IdempotencyKeyRepository) Get(ctx context.Context, key uuid.UUID) (uuid.UUID, [32]byte, model.IdempotencyStatus, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
@@ -82,11 +75,11 @@ func (r *IdempotencyKeyRepository) Get(ctx context.Context, key uuid.UUID) (uuid
 
 	var tripID uuid.UUID
 	var hashBytes []byte
-	var status IdempotencyStatus
+	var status model.IdempotencyStatus
 	row := txmanager.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
 	err = row.Scan(&tripID, &hashBytes, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, [32]byte{}, "", ErrKeyNotFound
+		return uuid.Nil, [32]byte{}, "", idempotency.ErrKeyNotFound
 	}
 	if err != nil {
 		return uuid.Nil, [32]byte{}, "", fmt.Errorf("scan idempotency key: %w", err)
@@ -123,7 +116,7 @@ func (r *IdempotencyKeyRepository) MarkCompleted(ctx context.Context, key uuid.U
 	defer cancel()
 	query, args, err := r.sb.
 		Update("idempotency_keys").
-		Set("status", string(IdempotencyStatusCompleted)).
+		Set("status", string(model.IdempotencyStatusCompleted)).
 		Where(sq.Eq{"id": key}).
 		ToSql()
 	if err != nil {
