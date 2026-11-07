@@ -2,11 +2,8 @@ package container
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
-	"os/signal"
-	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,29 +13,26 @@ import (
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/idempotency"
 	handler "github.com/maksimkasimovhse/TripGo/internal/http/trip"
+	"github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
+	"github.com/maksimkasimovhse/TripGo/internal/http/trip/finish"
+	"github.com/maksimkasimovhse/TripGo/internal/http/trip/get"
 	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 	idempotencyUseCase "github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
+	createUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
+	finishUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
+	getUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
 )
 
-func Run() error {
-	ctx, stop := signal.NotifyContext(
-		context.Background(),
-		syscall.SIGINT,
-		syscall.SIGTERM,
-	)
-	defer stop()
+type Container struct {
+	Server *http.Server
+	pool   *pgxpool.Pool
+}
 
-	cfgEnv, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("wrong parsing from .env: %w", err)
-	}
+func New(ctx context.Context, cfgEnv *config.Config) (Container, error) {
 	cfg, err := pgxpool.ParseConfig(cfgEnv.DatabaseURL)
 	if err != nil {
-		return fmt.Errorf("failed to parse database config (DATABASE_URL): %w", err)
+		return Container{}, fmt.Errorf("failed to parse database config (DATABASE_URL): %w", err)
 	}
 	cfg.MaxConns = cfgEnv.MaxConns
 	cfg.MinConns = cfgEnv.MinConns
@@ -47,15 +41,14 @@ func Run() error {
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("create pgx pool: %w", err)
+		return Container{}, fmt.Errorf("create pgx pool: %w", err)
 	}
-	defer pool.Close()
 
 	ctxPing, pingCancel := context.WithTimeout(ctx, cfgEnv.ConnectTimeout)
 	defer pingCancel()
 	if err := pool.Ping(ctxPing); err != nil {
 		pool.Close()
-		return fmt.Errorf("ping database: %w", err)
+		return Container{}, fmt.Errorf("ping database: %w", err)
 	}
 
 	tripRepo := repository.NewTripRepository(pool, cfgEnv.QueryTimeout)
@@ -64,17 +57,21 @@ func Run() error {
 
 	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
 
-	create := create.New(txm, tripRepo, historyRepo)
-	get := get.New(tripRepo)
-	finish := finish.New(txm, tripRepo, historyRepo)
+	createUC := createUC.New(txm, tripRepo, historyRepo)
+	getUC := getUC.New(tripRepo)
+	finishUC := finishUC.New(txm, tripRepo, historyRepo)
 	idempotencyUC := idempotencyUseCase.New(idempotencyKeyRepo)
 
-	h := handler.New(&create, &get, &finish, pool, cfgEnv.QueryTimeout)
+	createHandler := create.New(&createUC, cfgEnv.QueryTimeout)
+	finishHandler := finish.New(&finishUC, cfgEnv.QueryTimeout)
+	getHandler := get.New(&getUC, cfgEnv.QueryTimeout)
+	
+	h := handler.New(createHandler, finishHandler, getHandler, pool, cfgEnv.QueryTimeout)
 
 	decorator := idempotency.NewWithIdempotency(
 		h,
 		&idempotencyUC,
-		&get,
+		&getUC,
 	)
 
 	router := chi.NewRouter()
@@ -93,27 +90,9 @@ func Run() error {
 		WriteTimeout:      cfgEnv.WriteTimeout,
 		IdleTimeout:       cfgEnv.IdleTimeout,
 	}
+	return Container{Server: srv, pool: pool}, nil
+}
 
-	srvErr := make(chan error, 1)
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			srvErr <- err
-		}
-	}()
-
-	select {
-	case err := <-srvErr:
-		return fmt.Errorf("http server: %w", err)
-	case <-ctx.Done():
-	}
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfgEnv.ShutdownTimeout)
-	defer shutdownCancel()
-
-	if err = srv.Shutdown(shutdownCtx); err != nil {
-		_ = srv.Close()
-		return fmt.Errorf("graceful shutdown: %w", err)
-	}
-
-	return nil
+func (c *Container) Close() {
+	c.pool.Close()
 }

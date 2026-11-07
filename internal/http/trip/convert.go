@@ -7,7 +7,7 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 )
 
-func toAPITrip(t trip.Trip) api.Trip {
+func ToAPITrip(t trip.Trip) api.Trip {
 	return api.Trip{
 		Id:         t.ID,
 		UserId:     t.UserID,
@@ -21,7 +21,7 @@ func toAPITrip(t trip.Trip) api.Trip {
 	}
 }
 
-func toCreateInput(req api.TripData, tripID uuid.UUID) create.Input {
+func ToCreateInput(req api.TripData, tripID uuid.UUID) create.Input {
 	return create.Input{
 		ID:             tripID,
 		UserID:         req.UserId,

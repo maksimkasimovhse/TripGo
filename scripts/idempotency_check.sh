@@ -36,7 +36,7 @@ post "$KEY" "$B1"
 section "2. Повтор с тем же ключом и телом: ждём 201, тот же id и Location"
 post "$KEY" "$B1"
 
-section "3. Тот же ключ, другое тело (price другой): ждём 409 idempotency_key_conflict"
+section "3. Тот же ключ, другое тело (price другой): ждём 409 idempotency_conflict"
 post "$KEY" "$(body "$USER_ID" "$DRIVER_ID" 9999)"
 
 section "4. Невалидное тело (нет price): ждём 400"
@@ -54,8 +54,8 @@ post "$KEY5" "$(body "$(uuidgen)" "$DRIVER_ID" 700)"
 section "5b. Повтор того же запроса: ждём снова 409 driver_busy, а НЕ request_in_progress"
 post "$KEY5" "$(body "$(uuidgen)" "$DRIVER_ID" 700)"
 
-section "6. Без заголовка Idempotency-Key: ждём 400"
-post "" "$B1"
+section "6. Без заголовка Idempotency-Key, свободный водитель: ждём 201"
+post "" "$(body "$(uuidgen)" "$(uuidgen)" 1450)"
 
 section "7. Гонка: два одинаковых запроса параллельно (новые ключ и водитель)"
 KEY7=$(uuidgen)

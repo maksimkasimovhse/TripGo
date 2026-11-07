@@ -2,38 +2,66 @@ package trip
 
 import (
 	"context"
+	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
+	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
-type Handler struct {
-	createUsecase createUsecase
-	getUsecase    getUsecase
-	finishUsecase finishUsecase
+type contextKey struct{}
 
-	readiness    readinessChecker
-	readyTimeout time.Duration
+var TripIDKey = contextKey{}
+
+type createTrip interface {
+	CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams)
 }
 
-func New(Create createUsecase, get getUsecase, finish finishUsecase, readiness readinessChecker, readyTimeout time.Duration) *Handler {
-	return &Handler{createUsecase: Create, getUsecase: get, finishUsecase: finish, readiness: readiness, readyTimeout: readyTimeout}
+type finishTrip interface {
+	FinishTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId)
+}
+
+type getTrip interface {
+	GetTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId)
 }
 
 type readinessChecker interface {
 	Ping(ctx context.Context) error
 }
 
-type createUsecase interface {
-	Create(ctx context.Context, input create.Input) (trip.Trip, error)
+type Handler struct {
+	create       createTrip
+	finish       finishTrip
+	get          getTrip
+	readiness    readinessChecker
+	readyTimeout time.Duration
 }
 
-type getUsecase interface {
-	Get(ctx context.Context, id uuid.UUID) (trip.Trip, error)
+func New(createHandler createTrip, finishHandler finishTrip, getHandler getTrip, readiness readinessChecker, readyTimeout time.Duration) *Handler {
+	return &Handler{create: createHandler, finish: finishHandler, get: getHandler, readiness: readiness, readyTimeout: readyTimeout}
 }
 
-type finishUsecase interface {
-	Finish(ctx context.Context, id uuid.UUID) (trip.Trip, error)
+func (h *Handler) CreateTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	params api.CreateTripParams,
+) {
+	h.create.CreateTrip(w, r, params)
 }
+
+func (h *Handler) GetTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	tripID api.TripId,
+) {
+	h.get.GetTrip(w, r, tripID)
+}
+
+func (h *Handler) FinishTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	tripID api.TripId,
+) {
+	h.finish.FinishTrip(w, r, tripID)
+}
+
+var _ api.ServerInterface = (*Handler)(nil)

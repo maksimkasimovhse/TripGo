@@ -141,7 +141,7 @@ Dockerfile               многостадийная сборка образа 
 - `POST /api/v1/trips`, `GET /api/v1/trips/{tripId}`,
   `POST /api/v1/trips/{tripId}/finish`, `GET /health`, `GET /ready` по контракту.
 - Ошибки в `application/problem+json` с полем `code`: `invalid_request`,
-  `trip_not_found`, `trip_completed`, `driver_busy`, `idempotency_key_conflict`,
+  `trip_not_found`, `trip_completed`, `driver_busy`, `idempotency_conflict`,
   `request_in_progress`, `internal_error`.
   Текст ошибок БД в ответ не попадает, только в лог.
 - Таблицы `trips` и `trip_status_history`, журнал статусов пишется при создании
@@ -231,9 +231,9 @@ RETURNING ...
 
 ### Идемпотентность создания поездки
 
-`POST /api/v1/trips` требует заголовок `Idempotency-Key` (UUID); без него
-`400 invalid_request`. В контракте заголовок необязательный, обязательность
-проверяет сервис. Повтор запроса с тем же ключом не создаёт вторую поездку.
+`POST /api/v1/trips` принимает необязательный заголовок `Idempotency-Key` (UUID).
+Без него выполняется обычное создание поездки без проверки идемпотентности.
+Повтор запроса с тем же ключом не создаёт вторую поездку.
 
 Ключ хранится в таблице `idempotency_keys`: `id` (сам ключ), `request_hash`
 (SHA-256 тела запроса), `trip_id`, `status` (`processing` / `completed`),
@@ -252,7 +252,7 @@ RETURNING ...
 
 | Ситуация | Ответ |
 |---|---|
-| тело другое | `409 idempotency_key_conflict` |
+| тело другое | `409 idempotency_conflict` |
 | исходный запрос ещё выполняется (`processing`) | `409 request_in_progress` |
 | исходный запрос завершён (`completed`) | `201` и тот же trip, как в первом ответе, включая `Location` |
 
@@ -285,7 +285,7 @@ RETURNING ...
 - без доступной БД сервис не стартует;
 - `scripts/idempotency_check.sh`: повтор с тем же ключом возвращает ту же
   поездку, другое тело → `409`, ошибочный запрос освобождает ключ, запрос без
-  заголовка → `400`, гонка двух запросов → один `201` и один `409`;
+  заголовка со свободным водителем → `201`, гонка двух запросов → один `201` и один `409`;
 - 20 параллельных запросов с одним ключом → один `201`, девятнадцать `409`;
 - образ: `/health` и `/ready` из контейнера отвечают `200`, процесс запущен от
   `65532`, в образе нет исходников и Go toolchain.

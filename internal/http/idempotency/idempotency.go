@@ -30,7 +30,7 @@ func (s *statusRecorder) WriteHeader(code int) {
 
 func (w *WithIdempotency) CreateTrip(rw http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	if params.IdempotencyKey == nil {
-		trip.WriteInvalidRequest(rw, r, "Idempotency-Key header is required")
+		w.ServerInterface.CreateTrip(rw, r, params)
 		return
 	}
 	w.handleCreateTripIdempotent(rw, r, *params.IdempotencyKey, func(rw2 http.ResponseWriter, r2 *http.Request) {

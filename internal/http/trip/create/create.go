@@ -1,4 +1,4 @@
-package trip
+package create
 
 import (
 	"bytes"
@@ -11,20 +11,17 @@ import (
 
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
+	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
 )
 
-type contextKey struct{}
-
-var TripIDKey = contextKey{}
-
 func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, trip.MaxBodyBytes))
 	if err != nil {
-		WriteInvalidRequest(w, r, "Request body is too large or unreadable")
+		trip.WriteInvalidRequest(w, r, "Request body is too large or unreadable")
 		return
 	}
-	if msg := checkRequiredFields(body); msg != "" {
-		WriteInvalidRequest(w, r, msg)
+	if msg := trip.CheckRequiredFields(body); msg != "" {
+		trip.WriteInvalidRequest(w, r, msg)
 		return
 	}
 
@@ -33,25 +30,25 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 
 	var req api.TripData
 	if err := dec.Decode(&req); err != nil {
-		WriteInvalidRequest(w, r, "Request body is not valid JSON or contains unknown fields")
+		trip.WriteInvalidRequest(w, r, "Request body is not valid JSON or contains unknown fields")
 		return
 	}
 
-	tripID, ok := r.Context().Value(TripIDKey).(uuid.UUID)
+	tripID, ok := r.Context().Value(trip.TripIDKey).(uuid.UUID)
 	if !ok {
 		tripID = uuid.New()
 	}
 
-	input := toCreateInput(req, tripID)
+	input := trip.ToCreateInput(req, tripID)
 	tripForCreate, err := h.createUsecase.Create(r.Context(), input)
 
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		log.Printf("create trip: %v", err)
-		WriteProblemBody(w, r, status, problem)
+		trip.WriteProblemBody(w, r, status, problem)
 		return
 	}
 
-	w.Header().Set("Location", tripLocation(tripForCreate.ID))
-	WriteJSON(w, http.StatusCreated, toAPITrip(tripForCreate))
+	w.Header().Set("Location", trip.TripLocation(tripForCreate.ID))
+	trip.WriteJSON(w, http.StatusCreated, trip.ToAPITrip(tripForCreate))
 }

@@ -71,7 +71,7 @@ func ParamErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 
 const tripsPath = "/api/v1/trips/"
 
-func tripLocation(id uuid.UUID) string {
+func TripLocation(id uuid.UUID) string {
 	return tripsPath + id.String()
 }
 
@@ -92,6 +92,6 @@ func WriteCreateTripResponse(w http.ResponseWriter, r *http.Request, getUsecase 
 		return
 	}
 
-	w.Header().Set("Location", tripLocation(tripScan.ID))
-	WriteJSON(w, status, toAPITrip(tripScan))
+	w.Header().Set("Location", TripLocation(tripScan.ID))
+	WriteJSON(w, status, ToAPITrip(tripScan))
 }

@@ -49,9 +49,9 @@ func Problem(err error) (int, api.Problem) {
 	case errors.Is(err, idempotency.ErrIdempotencyKeyConflict):
 		return makeProblem(
 			http.StatusConflict,
-			"idempotency_key_conflict",
-			"Idempotency Key Conflict",
-			"Request body does not match the original request",
+			"idempotency_conflict",
+			"Idempotency conflict",
+			"Idempotency-Key was already used with a different request body",
 		)
 
 	case errors.Is(err, idempotency.ErrRequestInProgress):

@@ -1,4 +1,4 @@
-package trip
+package get
 
 import (
 	"log"
@@ -6,6 +6,7 @@ import (
 
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
+	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
 )
 
 func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
@@ -14,9 +15,9 @@ func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.Tri
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		log.Printf("get trip %s: %v", tripID, err)
-		WriteProblemBody(w, r, status, problem)
+		trip.WriteProblemBody(w, r, status, problem)
 		return
 	}
 
-	WriteJSON(w, http.StatusOK, toAPITrip(tripScan))
+	trip.WriteJSON(w, http.StatusOK, trip.ToAPITrip(tripScan))
 }

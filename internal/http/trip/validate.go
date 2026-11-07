@@ -6,7 +6,7 @@ import (
 
 const MaxBodyBytes = 1 << 20
 
-func checkRequiredFields(body []byte) string {
+func CheckRequiredFields(body []byte) string {
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal(body, &top); err != nil {
 		return "Request body must be a JSON object"
