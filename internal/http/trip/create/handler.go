@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip"

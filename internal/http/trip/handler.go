@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 const MaxBodyBytes = 1 << 20

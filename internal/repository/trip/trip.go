@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 )
 
 type TripRepository struct {
@@ -73,7 +73,7 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (trip.Trip, 
 		return trip.Trip{}, fmt.Errorf("build get trip query: %w", err)
 	}
 
-	row := txmanager.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
+	row := transaction.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
 	tripScan, err := scanTrip(row)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -112,7 +112,7 @@ func (r *TripRepository) Create(ctx context.Context, tripForCreate trip.Trip) er
 		return fmt.Errorf("build create trip query: %w", err)
 	}
 
-	_, err = txmanager.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
+	_, err = transaction.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == activeTripPerDriverIdx {
@@ -142,7 +142,7 @@ func (r *TripRepository) Finish(ctx context.Context, id uuid.UUID, finishedAt ti
 	if err != nil {
 		return trip.Trip{}, fmt.Errorf("build finish trip query: %w", err)
 	}
-	row := txmanager.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
+	row := transaction.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
 	tripScan, err := scanTrip(row)
 
 	if err == nil {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
 )
 

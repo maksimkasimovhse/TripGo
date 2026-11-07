@@ -3,7 +3,7 @@ package trip
 import (
 	"net/http"
 
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 type createTrip interface {

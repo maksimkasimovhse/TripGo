@@ -121,20 +121,66 @@ docker rm tmp-check
 ## Структура
 
 ```
-cmd/trip-service/        main: запускает app.Run(), единственный log.Fatalf
-internal/app/            Run(): конфиг, пул, сборка зависимостей, HTTP-сервер, graceful shutdown
-internal/config/         чтение и проверка переменных окружения
-internal/domain/         модель поездки и доменные ошибки
-internal/generated/      код, сгенерированный из OpenAPI (не редактируется)
-internal/handler/        HTTP-ручки, валидация, ответы в JSON / problem+json
-internal/txmanager/      менеджер транзакций
-internal/repository/     SQL через squirrel: trips, trip_status_history, idempotency_keys
-scripts/                 ручные проверки (curl), idempotency_check.sh
-migrations/              миграции goose
-contracts/               контракт курса (не редактируется)
-Dockerfile               многостадийная сборка образа сервиса
-.dockerignore            белый список файлов для контекста сборки
+cmd/service/                         main: вызов app.Run(), вывод ошибки
+internal/app/                        конфиг, вызов контейнера, HTTP-сервер, сигналы и shutdown
+internal/config/                     чтение и проверка env
+internal/container/                  создание и связывание зависимостей, закрытие ресурсов
+internal/domain/trip/                поездка, валидация, переход Finish, доменные ошибки
+internal/domain/idempotency/         ошибки идемпотентности
+internal/model/                      статус ключа идемпотентности
+internal/usecase/trip/create/         создание поездки, contract.go
+internal/usecase/trip/get/            чтение поездки, contract.go
+internal/usecase/trip/finish/         завершение поездки, contract.go
+internal/usecase/idempotency/         операции с ключами, contract.go
+internal/http/trip/                  общий Handler, health/readiness, общие функции поездок
+internal/http/trip/create/           ручка создания, contract.go, преобразование и проверка тела
+internal/http/trip/get/              ручка чтения, contract.go
+internal/http/trip/finish/           ручка завершения, contract.go
+internal/http/domainerror/           единый маппинг доменных ошибок в HTTP
+internal/http/respond/               запись JSON и Problem
+internal/http/middleware/            декоратор идемпотентности и ответ на повтор
+internal/repository/trip/            SQL поездок, истории статусов и ключей
+internal/infra/postgres/             создание, настройка и стартовый Ping пула pgx
+internal/infra/postgres/transaction/ менеджер транзакций
+internal/generated/                  сгенерированный код OpenAPI (не редактируется)
+scripts/                             ручные проверки (curl)
+migrations/                          миграции goose
+contracts/                           контракт курса (не редактируется)
+Dockerfile                           многостадийная сборка образа сервиса
+.dockerignore                        белый список файлов для контекста сборки
 ```
+
+### Отступления от целевой структуры
+
+- Конфиг, запуск и обработка сигналов находятся в `app.Run`, а `main` только
+  вызывает его и выводит ошибку. Это сохраняет короткую точку входа и собирает
+  управление жизненным циклом приложения в одном месте. Зависимости создаёт
+  `container`, а не `app`.
+- `pgxpool.NewWithConfig` вызывается внутри `infra/postgres.NewPool`, а контейнер
+  вызывает этот конструктор. Настройка драйвера, проверка соединения и очистка при
+  ошибке инкапсулированы в инфраструктуре; контейнер выбирает реализации и
+  владеет успешно созданным пулом.
+- Между слоями передаётся `domain/trip.Trip`. Отдельная идентичная `model.Trip`
+  не заведена, чтобы не дублировать поля и преобразования. `model` содержит
+  только статус ключа идемпотентности.
+- Файлы репозитория разделены по данным: `trip.go`, `status_history.go`,
+  `idempotency_keys.go`. Общий код SQL поездок пока помещается в одном файле;
+  отдельные `save.go`, `fetch.go` и `convert.go` не требуются. Интерфейсы
+  репозиториев объявлены у потребителей в usecase.
+- Общий `http/trip.Handler` реализует сгенерированный `api.ServerInterface`
+  и делегирует операции отдельным ручкам через интерфейсы. Он не импортирует
+  пакеты ручек; конкретные обработчики связывает контейнер. Пакет `respond`
+  хранит общую запись HTTP-ответов и не содержит бизнес-операций.
+- Доменные sentinel-ошибки поездки пока объявлены в `trip.go`, а тип
+  `ValidationError` — в `errors.go`. Оба файла принадлежат `domain/trip`,
+  поэтому ошибки остаются рядом с сущностью без отдельного пакета ошибок.
+
+### Невыполненные требования
+
+Тесты, генерация моков, проверка зависимостей через depguard и инициализация
+OpenTelemetry/slog пока отсутствуют. Это невыполненные требования, а не
+обоснованные архитектурные отступления. Переменная `LOG_LEVEL` проверяется,
+но ещё не управляет обычным логгером `log`.
 
 ## Что сделано
 
@@ -169,10 +215,11 @@ Dockerfile               многостадийная сборка образа 
 
 ### Менеджер транзакций
 
-`internal/txmanager`. Бизнес-код видит только интерфейс:
+`internal/infra/postgres/transaction`. Бизнес-код видит только интерфейс
+из своего `contract.go`:
 
 ```go
-type TxManager interface {
+type txManager interface {
     Do(ctx context.Context, fn func(ctx context.Context) error) error
 }
 ```
@@ -183,7 +230,7 @@ type TxManager interface {
   ошибка возвращается наружу без изменений (чтобы работал `errors.Is`), паника
   летит дальше. Откат выполняется с `context.WithoutCancel` и собственным
   таймаутом, поэтому срабатывает и тогда, когда контекст запроса уже отменён.
-- Репозиторий получает исполнителя через `txmanager.GetExecutor(ctx, pool)`:
+- Репозиторий получает исполнителя через `transaction.GetExecutor(ctx, pool)`:
   если в контексте есть транзакция — запрос идёт через неё, если нет — через
   пул. Транзакция аргументом в репозиторий не передаётся.
 - Вложенный `Do` видит транзакцию в контексте и просто вызывает `fn` в ней, не
@@ -211,6 +258,13 @@ WHERE status = 'active';
 
 ### Защита завершения от гонки
 
+В одной транзакции usecase сначала загружает поездку через обычный `SELECT`
+без `FOR UPDATE`. Отсутствующая поездка даёт `404 trip_not_found`. Затем
+`Trip.Finish(at)` проверяет активный статус и меняет локальный объект в памяти;
+для уже завершённой поездки возвращается `409 trip_completed`.
+
+Изменение сохраняется условным запросом:
+
 ```sql
 UPDATE trips SET status = 'completed', finished_at = $1, updated_at = $1
 WHERE id = $2 AND status = 'active'
@@ -222,6 +276,13 @@ RETURNING ...
 `completed` и не обновляет ничего. Если строк не вернулось, дополнительное
 чтение по `id` различает случаи: поездки нет → `404 trip_not_found`, есть →
 `409 trip_completed`. `finished_at` не перезаписывается.
+
+Таким образом, домен определяет допустимость перехода, а SQL защищает от
+изменения состояния между чтением и записью. После успешного `UPDATE` usecase
+добавляет историю статусов и коммитит транзакцию. При ошибке записи истории
+или коммита наружу возвращается ошибка без изменённой поездки. Локальный
+объект не разделяется между запросами и не публикуется до успешного коммита.
+Успешное завершение теперь требует дополнительного `SELECT`.
 
 ### Время
 

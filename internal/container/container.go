@@ -10,18 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/config"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	httpmiddleware "github.com/maksimkasimovhse/TripGo/internal/http/middleware"
-	handler "github.com/maksimkasimovhse/TripGo/internal/http/trip"
-	"github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
-	"github.com/maksimkasimovhse/TripGo/internal/http/trip/finish"
-	"github.com/maksimkasimovhse/TripGo/internal/http/trip/get"
-	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
-	repository "github.com/maksimkasimovhse/TripGo/internal/repository/trip"
-	idempotencyUseCase "github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
-	createUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
-	finishUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
-	getUC "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
+	triphttp "github.com/maksimkasimovhse/TripGo/internal/http/trip"
+	createhttp "github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
+	finishhttp "github.com/maksimkasimovhse/TripGo/internal/http/trip/finish"
+	gethttp "github.com/maksimkasimovhse/TripGo/internal/http/trip/get"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	"github.com/maksimkasimovhse/TripGo/internal/repository/trip"
+	"github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
+	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
+	finishuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
+	getuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
 )
 
 type Container struct {
@@ -30,43 +31,27 @@ type Container struct {
 }
 
 func New(ctx context.Context, cfgEnv *config.Config) (Container, error) {
-	cfg, err := pgxpool.ParseConfig(cfgEnv.DatabaseURL)
+	pool, err := postgres.NewPool(ctx, cfgEnv)
 	if err != nil {
-		return Container{}, fmt.Errorf("failed to parse database config (DATABASE_URL): %w", err)
-	}
-	cfg.MaxConns = cfgEnv.MaxConns
-	cfg.MinConns = cfgEnv.MinConns
-	cfg.MaxConnLifetime = cfgEnv.MaxConnLifetime
-	cfg.ConnConfig.ConnectTimeout = cfgEnv.ConnectTimeout
-
-	pool, err := pgxpool.NewWithConfig(ctx, cfg)
-	if err != nil {
-		return Container{}, fmt.Errorf("create pgx pool: %w", err)
-	}
-
-	ctxPing, pingCancel := context.WithTimeout(ctx, cfgEnv.ConnectTimeout)
-	defer pingCancel()
-	if err := pool.Ping(ctxPing); err != nil {
-		pool.Close()
-		return Container{}, fmt.Errorf("ping database: %w", err)
+		return Container{}, fmt.Errorf("initialize postgres: %w", err)
 	}
 
 	tripRepo := repository.NewTripRepository(pool, cfgEnv.QueryTimeout)
 	historyRepo := repository.NewStatusHistoryRepository(pool, cfgEnv.QueryTimeout)
 	idempotencyKeyRepo := repository.NewIdempotencyKeyRepository(pool, cfgEnv.QueryTimeout)
 
-	txm := txmanager.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
+	txm := transaction.New(pool, pgx.ReadCommitted, cfgEnv.QueryTimeout)
 
-	createUC := createUC.New(txm, tripRepo, historyRepo)
-	getUC := getUC.New(tripRepo)
-	finishUC := finishUC.New(txm, tripRepo, historyRepo)
-	idempotencyUC := idempotencyUseCase.New(idempotencyKeyRepo)
+	createUC := createuc.New(txm, tripRepo, historyRepo)
+	getUC := getuc.New(tripRepo)
+	finishUC := finishuc.New(txm, tripRepo, historyRepo)
+	idempotencyUC := idempotency.New(idempotencyKeyRepo)
 
-	createHandler := create.New(&createUC)
-	finishHandler := finish.New(&finishUC)
-	getHandler := get.New(&getUC)
+	createHandler := createhttp.New(&createUC)
+	finishHandler := finishhttp.New(&finishUC)
+	getHandler := gethttp.New(&getUC)
 
-	h := handler.New(createHandler, finishHandler, getHandler, pool, cfgEnv.QueryTimeout)
+	h := triphttp.New(createHandler, finishHandler, getHandler, pool, cfgEnv.QueryTimeout)
 
 	decorator := httpmiddleware.NewWithIdempotency(
 		h,
@@ -79,7 +64,7 @@ func New(ctx context.Context, cfgEnv *config.Config) (Container, error) {
 	api.HandlerWithOptions(decorator,
 		api.ChiServerOptions{
 			BaseRouter:       router,
-			ErrorHandlerFunc: handler.ParamErrorHandler,
+			ErrorHandlerFunc: triphttp.ParamErrorHandler,
 		})
 
 	srv := &http.Server{

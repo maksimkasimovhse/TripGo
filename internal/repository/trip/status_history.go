@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 )
 
 type StatusHistoryRepository struct {
@@ -44,7 +44,7 @@ func (r *StatusHistoryRepository) Add(ctx context.Context, tripID uuid.UUID, fro
 		return fmt.Errorf("build insert status history query: %w", err)
 	}
 
-	if _, err := txmanager.GetExecutor(ctx, r.pool).Exec(ctx, query, args...); err != nil {
+	if _, err := transaction.GetExecutor(ctx, r.pool).Exec(ctx, query, args...); err != nil {
 		return fmt.Errorf("insert status history: %w", err)
 	}
 	return nil

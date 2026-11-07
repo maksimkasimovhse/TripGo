@@ -2,12 +2,12 @@ package create
 
 import (
 	"github.com/google/uuid"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
+	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 )
 
-func ToCreateInput(req api.TripData, tripID uuid.UUID) create.Input {
-	return create.Input{
+func ToCreateInput(req api.TripData, tripID uuid.UUID) createuc.Input {
+	return createuc.Input{
 		ID:             tripID,
 		UserID:         req.UserId,
 		DriverID:       req.DriverId,

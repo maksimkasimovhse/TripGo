@@ -7,7 +7,7 @@ import (
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 func Problem(err error) (int, api.Problem) {

@@ -33,6 +33,16 @@ type Trip struct {
 	UpdatedAt  time.Time
 }
 
+func (t *Trip) Finish(at time.Time) error {
+	if t.Status != StatusActive {
+		return ErrTripCompleted
+	}
+
+	t.Status = StatusCompleted
+	t.FinishedAt = &at
+	return nil
+}
+
 var (
 	ErrTripNotFound  = errors.New("trip not found")
 	ErrTripCompleted = errors.New("trip already completed")

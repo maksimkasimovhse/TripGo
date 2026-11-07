@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
-	txmanager "github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 	"github.com/maksimkasimovhse/TripGo/internal/model"
 )
 
@@ -49,7 +49,7 @@ func (r *IdempotencyKeyRepository) TryInsert(ctx context.Context, id uuid.UUID, 
 		return false, fmt.Errorf("build insert idempotency key query: %w", err)
 	}
 
-	tag, err := txmanager.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
+	tag, err := transaction.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return false, fmt.Errorf("insert idempotency key: %w", err)
 	}
@@ -76,7 +76,7 @@ func (r *IdempotencyKeyRepository) Get(ctx context.Context, key uuid.UUID) (uuid
 	var tripID uuid.UUID
 	var hashBytes []byte
 	var status model.IdempotencyStatus
-	row := txmanager.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
+	row := transaction.GetExecutor(ctx, r.pool).QueryRow(ctx, query, args...)
 	err = row.Scan(&tripID, &hashBytes, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, [32]byte{}, "", idempotency.ErrKeyNotFound
@@ -104,7 +104,7 @@ func (r *IdempotencyKeyRepository) Delete(ctx context.Context, key uuid.UUID) er
 	if err != nil {
 		return fmt.Errorf("build delete idempotency key query: %w", err)
 	}
-	_, err = txmanager.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
+	_, err = transaction.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("delete recording: %w", err)
 	}
@@ -122,7 +122,7 @@ func (r *IdempotencyKeyRepository) MarkCompleted(ctx context.Context, key uuid.U
 	if err != nil {
 		return fmt.Errorf("build update idempotency key status query: %w", err)
 	}
-	tag, err := txmanager.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
+	tag, err := transaction.GetExecutor(ctx, r.pool).Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("update status: %w", err)
 	}

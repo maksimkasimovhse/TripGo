@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 func WriteInvalidRequest(w http.ResponseWriter, r *http.Request, detail string) {

@@ -2,7 +2,7 @@ package trip
 
 import (
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
 func ToAPITrip(t trip.Trip) api.Trip {
