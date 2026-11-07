@@ -3,15 +3,14 @@ package trip
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"log"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
 )
 
 type contextKey struct{}
@@ -46,21 +45,10 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 	input := toCreateInput(req, tripID)
 	tripForCreate, err := h.createUsecase.Create(r.Context(), input)
 
-	var validationErr *trip.ValidationError
-	if errors.As(err, &validationErr) {
-		WriteInvalidRequest(w, r, validationErr.Error())
-		return
-	}
-
-	if errors.Is(err, trip.ErrDriverBusy) {
-		WriteProblem(w, r, http.StatusConflict, "driver_busy",
-			"Driver busy", "Driver already has an active trip")
-		return
-	}
 	if err != nil {
+		status, problem := domainerror.Problem(err)
 		log.Printf("create trip: %v", err)
-		WriteProblem(w, r, http.StatusInternalServerError, "internal_error",
-			"Internal Server Error", "Internal server error")
+		WriteProblemBody(w, r, status, problem)
 		return
 	}
 

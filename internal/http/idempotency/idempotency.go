@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"errors"
 	"io"
 	"log"
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
+	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
 )
 
@@ -49,18 +48,11 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 	hash := sha256.Sum256(body)
 
 	result, err := w.usecase.Acquire(r.Context(), key, hash)
+
 	if err != nil {
-		switch {
-		case errors.Is(err, idempotency.ErrIdempotencyKeyConflict):
-			trip.WriteProblem(rw, r, http.StatusConflict, "idempotency_key_conflict", "Idempotency Key Conflict", "Request body does not match the original request")
-
-		case errors.Is(err, idempotency.ErrRequestInProgress):
-			trip.WriteProblem(rw, r, http.StatusConflict, "request_in_progress", "Request In Progress", "Original request is still processing")
-
-		default:
-			log.Printf("acquire idempotency key: %v", err)
-			trip.WriteProblem(rw, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
-		}
+		status, problem := domainerror.Problem(err)
+		log.Printf("idempotent key: %v", err)
+		trip.WriteProblemBody(rw, r, status, problem)
 		return
 	}
 
