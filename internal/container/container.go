@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/maksimkasimovhse/TripGo/internal/config"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/http/idempotency"
+	httpmiddleware "github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 	handler "github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/finish"
@@ -62,13 +62,13 @@ func New(ctx context.Context, cfgEnv *config.Config) (Container, error) {
 	finishUC := finishUC.New(txm, tripRepo, historyRepo)
 	idempotencyUC := idempotencyUseCase.New(idempotencyKeyRepo)
 
-	createHandler := create.New(&createUC, cfgEnv.QueryTimeout)
-	finishHandler := finish.New(&finishUC, cfgEnv.QueryTimeout)
-	getHandler := get.New(&getUC, cfgEnv.QueryTimeout)
-	
+	createHandler := create.New(&createUC)
+	finishHandler := finish.New(&finishUC)
+	getHandler := get.New(&getUC)
+
 	h := handler.New(createHandler, finishHandler, getHandler, pool, cfgEnv.QueryTimeout)
 
-	decorator := idempotency.NewWithIdempotency(
+	decorator := httpmiddleware.NewWithIdempotency(
 		h,
 		&idempotencyUC,
 		&getUC,

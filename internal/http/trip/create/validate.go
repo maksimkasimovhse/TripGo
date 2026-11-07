@@ -1,10 +1,8 @@
-package trip
+package create
 
 import (
 	"encoding/json"
 )
-
-const MaxBodyBytes = 1 << 20
 
 func CheckRequiredFields(body []byte) string {
 	var top map[string]json.RawMessage

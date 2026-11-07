@@ -1,25 +1,48 @@
 package trip
 
 import (
-	"context"
-	"log"
 	"net/http"
+	"time"
 
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 )
 
-func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+const MaxBodyBytes = 1 << 20
+
+type Handler struct {
+	create       createTrip
+	finish       finishTrip
+	get          getTrip
+	readiness    readinessChecker
+	readyTimeout time.Duration
 }
 
-func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), h.readyTimeout)
-	defer cancel()
-
-	if err := h.readiness.Ping(ctx); err != nil {
-		log.Printf("db ping failed: %v", err)
-		WriteJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
-		return
-	}
-	WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+func New(createHandler createTrip, finishHandler finishTrip, getHandler getTrip, readiness readinessChecker, readyTimeout time.Duration) *Handler {
+	return &Handler{create: createHandler, finish: finishHandler, get: getHandler, readiness: readiness, readyTimeout: readyTimeout}
 }
+
+func (h *Handler) CreateTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	params api.CreateTripParams,
+) {
+	h.create.CreateTrip(w, r, params)
+}
+
+func (h *Handler) GetTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	tripID api.TripId,
+) {
+	h.get.GetTrip(w, r, tripID)
+}
+
+func (h *Handler) FinishTrip(
+	w http.ResponseWriter,
+	r *http.Request,
+	tripID api.TripId,
+) {
+	h.finish.FinishTrip(w, r, tripID)
+}
+
+var _ api.ServerInterface = (*Handler)(nil)

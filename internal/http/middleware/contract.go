@@ -1,4 +1,4 @@
-package idempotency
+package middleware
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	domain "github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
-	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
 )
 
@@ -24,7 +23,7 @@ type WithIdempotency struct {
 	getter  tripGetter
 }
 
-func NewWithIdempotency(h *trip.Handler, usecase Usecase, getter tripGetter) *WithIdempotency {
+func NewWithIdempotency(h api.ServerInterface, usecase Usecase, getter tripGetter) *WithIdempotency {
 	return &WithIdempotency{ServerInterface: h, usecase: usecase, getter: getter}
 }
 

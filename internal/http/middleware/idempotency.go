@@ -1,4 +1,4 @@
-package idempotency
+package middleware
 
 import (
 	"bytes"
@@ -11,12 +11,9 @@ import (
 	"github.com/google/uuid"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
+	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
 )
-
-type ctxKey string
-
-const tripIDKey ctxKey = "tripID"
 
 type statusRecorder struct {
 	http.ResponseWriter
@@ -41,7 +38,7 @@ func (w *WithIdempotency) CreateTrip(rw http.ResponseWriter, r *http.Request, pa
 func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *http.Request, key uuid.UUID, next func(http.ResponseWriter, *http.Request)) {
 	body, err := io.ReadAll(http.MaxBytesReader(rw, r.Body, trip.MaxBodyBytes))
 	if err != nil {
-		trip.WriteInvalidRequest(rw, r, "Request body is too large or unreadable")
+		respond.WriteInvalidRequest(rw, r, "Request body is too large or unreadable")
 		return
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
@@ -52,16 +49,16 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		log.Printf("idempotent key: %v", err)
-		trip.WriteProblemBody(rw, r, status, problem)
+		respond.WriteProblemBody(rw, r, status, problem)
 		return
 	}
 
 	if result.Replay {
-		trip.WriteCreateTripResponse(rw, r, w.getter, http.StatusCreated, result.TripID)
+		WriteCreateTripResponse(rw, r, w.getter, http.StatusCreated, result.TripID)
 		return
 	}
 
-	ctx := context.WithValue(r.Context(), trip.TripIDKey, result.TripID)
+	ctx := trip.WithTripID(r.Context(), result.TripID)
 	rec := &statusRecorder{ResponseWriter: rw, status: http.StatusOK}
 
 	func() {
