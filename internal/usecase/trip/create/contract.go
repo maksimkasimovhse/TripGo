@@ -8,6 +8,8 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 )
 
+//go:generate go tool mockgen -source=$GOFILE -destination=mocks_test.go -package=create_test -mock_names=tripRepo=MockTripRepository,historyRepo=MockHistoryRepository,txManager=MockTxManager
+
 type tripRepo interface {
 	Create(ctx context.Context, trip trip.Trip) error
 }
