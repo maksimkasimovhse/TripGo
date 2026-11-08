@@ -9,6 +9,8 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
 )
 
+//go:generate go tool mockgen -source=$GOFILE -destination=mocks_test.go -package=trip_test -mock_names=readinessChecker=MockReadinessChecker
+
 type readinessChecker interface {
 	Ping(ctx context.Context) error
 }
