@@ -6,7 +6,7 @@ IMAGE ?= trip-service:local
 DOCKER_NETWORK ?= kind
 DOCKER_DATABASE_URL ?= postgres://tripgo:tripgo@tripgo-local-control-plane:30103/tripgo?sslmode=disable
 
-.PHONY: generate migrate migrate-down migrate-status run test docker-build docker-run
+.PHONY: generate migrate migrate-down migrate-status run test docker-build docker-run generate-mocks
 
 generate:
 	go tool oapi-codegen \
@@ -38,3 +38,6 @@ docker-run:
 	docker run --rm -p 8080:8080 --network $(DOCKER_NETWORK) \
 	  -e DATABASE_URL='$(DOCKER_DATABASE_URL)' \
 	  $(IMAGE)
+
+generate-mocks:
+	go generate ./internal/...
