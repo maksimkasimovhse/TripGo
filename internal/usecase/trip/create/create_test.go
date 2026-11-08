@@ -112,7 +112,6 @@ func TestCreateInvalidInput(t *testing.T) {
 			input := validInput()
 			tt.change(&input)
 
-			// No expectations: validation must stop before any dependency is called.
 			uc := create.New(txm, repo, history)
 			got, err := uc.Create(context.Background(), input)
 
@@ -168,7 +167,6 @@ func TestCreateDependencyErrors(t *testing.T) {
 			input := validInput()
 
 			if tt.beginFails {
-				// The callback and both repositories must remain untouched.
 				txm.EXPECT().Do(ctx, gomock.Any()).Return(tt.txErr)
 			} else {
 				txm.EXPECT().Do(ctx, gomock.Any()).
@@ -176,7 +174,6 @@ func TestCreateDependencyErrors(t *testing.T) {
 						if err := fn(txCtx); err != nil {
 							return err
 						}
-						// Simulate a commit failure after a successful callback.
 						return tt.txErr
 					})
 

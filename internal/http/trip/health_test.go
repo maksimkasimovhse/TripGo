@@ -24,7 +24,6 @@ func TestHealth(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
-	// Health must not contact the database.
 
 	h.Health(rec, req)
 

@@ -6,7 +6,7 @@ IMAGE ?= trip-service:local
 DOCKER_NETWORK ?= kind
 DOCKER_DATABASE_URL ?= postgres://tripgo:tripgo@tripgo-local-control-plane:30103/tripgo?sslmode=disable
 
-.PHONY: generate migrate migrate-down migrate-status run test docker-build docker-run generate-mocks
+.PHONY: generate migrate migrate-down migrate-status run test test-integration docker-build docker-run generate-mocks
 
 generate:
 	go tool oapi-codegen \
@@ -30,6 +30,9 @@ run:
 
 test:
 	go test -race ./...
+
+test-integration:
+	go test -race -tags=integration -count=1 ./...
 
 docker-build:
 	docker build -t $(IMAGE) .

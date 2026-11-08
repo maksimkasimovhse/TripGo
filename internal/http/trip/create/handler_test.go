@@ -253,7 +253,6 @@ func TestCreateTripInvalidRequest(t *testing.T) {
 				req.Body = unreadableBody{}
 			}
 			rec := httptest.NewRecorder()
-			// No expectations: invalid requests must not reach the usecase.
 
 			create.New(uc).CreateTrip(rec, req, api.CreateTripParams{})
 

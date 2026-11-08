@@ -42,7 +42,6 @@ func TestFinishSuccess(t *testing.T) {
 				if at.Location() != time.UTC {
 					t.Errorf("finish time location = %v, want UTC", at.Location())
 				}
-				// PostgreSQL returns timestamps with microsecond precision.
 				persistedAt := at.Truncate(time.Microsecond)
 				saved = active
 				saved.Status = trip.StatusCompleted
@@ -126,7 +125,6 @@ func TestFinishErrors(t *testing.T) {
 			}
 
 			if tt.beginFails {
-				// Neither the callback nor repository methods may run.
 				txm.EXPECT().Do(ctx, gomock.Any()).Return(tt.txErr)
 			} else {
 				txm.EXPECT().Do(ctx, gomock.Any()).
