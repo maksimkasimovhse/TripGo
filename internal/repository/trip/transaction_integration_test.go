@@ -5,6 +5,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"reflect"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 	finishuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
+	"go.opentelemetry.io/otel/metric/noop"
 )
 
 func TestTripLifecycleHistoryCommitIntegration(t *testing.T) {
@@ -23,8 +25,8 @@ func TestTripLifecycleHistoryCommitIntegration(t *testing.T) {
 	trips := repository.NewTripRepository(pool, 3*time.Second)
 	history := repository.NewStatusHistoryRepository(pool, 3*time.Second)
 	txm := transaction.New(pool, pgx.ReadCommitted, 3*time.Second)
-	creator := createuc.New(txm, trips, history)
-	finisher := finishuc.New(txm, trips, history)
+	creator := createuc.New(slog.New(slog.DiscardHandler), txm, trips, history, noop.Int64Counter{})
+	finisher := finishuc.New(slog.New(slog.DiscardHandler), txm, trips, history, noop.Int64Counter{})
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

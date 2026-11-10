@@ -1,8 +1,11 @@
 package finish_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"reflect"
 	"testing"
 	"time"
@@ -10,11 +13,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/mock/gomock"
 )
 
 func TestFinishSuccess(t *testing.T) {
 	t.Parallel()
+
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	counter := &recordingCounter{}
 
 	ctrl := gomock.NewController(t)
 	repo := NewMockTripRepository(ctrl)
@@ -27,7 +36,16 @@ func TestFinishSuccess(t *testing.T) {
 
 	txm.EXPECT().Do(ctx, gomock.Any()).
 		DoAndReturn(func(_ context.Context, fn func(context.Context) error) error {
-			return fn(txCtx)
+			if err := fn(txCtx); err != nil {
+				return err
+			}
+			if output.Len() != 0 {
+				t.Error("business event logged before transaction commit")
+			}
+			if counter.value != 0 {
+				t.Error("trip counted before transaction commit")
+			}
+			return nil
 		})
 
 	var saved trip.Trip
@@ -59,10 +77,13 @@ func TestFinishSuccess(t *testing.T) {
 			}),
 	)
 
-	uc := finish.New(txm, repo, history)
+	uc := finish.New(logger, txm, repo, history, counter)
 	got, err := uc.Finish(ctx, active.ID)
 	if err != nil {
 		t.Fatalf("Finish() error = %v, want nil", err)
+	}
+	if counter.value != 1 {
+		t.Errorf("completed trips = %d, want 1", counter.value)
 	}
 	if !reflect.DeepEqual(got, saved) {
 		t.Errorf("Finish() = %+v, want saved trip %+v", got, saved)
@@ -73,6 +94,14 @@ func TestFinishSuccess(t *testing.T) {
 	if got.FinishedAt == nil {
 		t.Fatal("FinishedAt is nil")
 	}
+	var record map[string]any
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
+		t.Fatalf("expected one JSON business event: %v", err)
+	}
+	if record["msg"] != "trip completed" || record["trip_id"] != active.ID.String() || record["level"] != "INFO" {
+		t.Errorf("business event = %+v", record)
+	}
+
 }
 
 func TestFinishErrors(t *testing.T) {
@@ -109,6 +138,10 @@ func TestFinishErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			var output bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&output, nil))
+			counter := &recordingCounter{}
 
 			ctrl := gomock.NewController(t)
 			repo := NewMockTripRepository(ctrl)
@@ -152,10 +185,16 @@ func TestFinishErrors(t *testing.T) {
 				}
 			}
 
-			uc := finish.New(txm, repo, history)
+			uc := finish.New(logger, txm, repo, history, counter)
 			got, err := uc.Finish(ctx, loaded.ID)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Finish() error = %v, want %v", err, tt.wantErr)
+			}
+			if output.Len() != 0 {
+				t.Errorf("business event logged for failed operation: %s", output.String())
+			}
+			if counter.value != 0 {
+				t.Errorf("failed finish increased counter to %d", counter.value)
 			}
 			if got != (trip.Trip{}) {
 				t.Errorf("Finish() = %+v, want empty trip on error", got)
@@ -177,4 +216,13 @@ func activeTrip() trip.Trip {
 		Status:         trip.StatusActive,
 		StartedAt:      time.Date(2026, 11, 8, 10, 0, 0, 0, time.UTC),
 	}
+}
+
+type recordingCounter struct {
+	noop.Int64Counter
+	value int64
+}
+
+func (c *recordingCounter) Add(_ context.Context, value int64, _ ...metric.AddOption) {
+	c.value += value
 }

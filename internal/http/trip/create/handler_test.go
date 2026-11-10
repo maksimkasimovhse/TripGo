@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -83,7 +84,7 @@ func TestCreateTripSuccess(t *testing.T) {
 					}, nil
 				})
 
-			h := create.New(uc)
+			h := create.New(slog.New(slog.DiscardHandler), uc)
 
 			h.CreateTrip(rec, req, api.CreateTripParams{})
 
@@ -172,7 +173,7 @@ func TestCreateTripUsecaseErrors(t *testing.T) {
 
 			uc.EXPECT().Create(req.Context(), gomock.Any()).Return(trip.Trip{}, tt.err)
 
-			create.New(uc).CreateTrip(rec, req, api.CreateTripParams{})
+			create.New(slog.New(slog.DiscardHandler), uc).CreateTrip(rec, req, api.CreateTripParams{})
 
 			checkCreateProblem(t, rec, tt.status, tt.code)
 		})
@@ -254,7 +255,7 @@ func TestCreateTripInvalidRequest(t *testing.T) {
 			}
 			rec := httptest.NewRecorder()
 
-			create.New(uc).CreateTrip(rec, req, api.CreateTripParams{})
+			create.New(slog.New(slog.DiscardHandler), uc).CreateTrip(rec, req, api.CreateTripParams{})
 
 			checkCreateProblem(t, rec, http.StatusBadRequest, "invalid_request")
 

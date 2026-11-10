@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -38,7 +37,7 @@ func (w *WithIdempotency) CreateTrip(rw http.ResponseWriter, r *http.Request, pa
 func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *http.Request, key uuid.UUID, next func(http.ResponseWriter, *http.Request)) {
 	body, err := io.ReadAll(http.MaxBytesReader(rw, r.Body, trip.MaxBodyBytes))
 	if err != nil {
-		respond.WriteInvalidRequest(rw, r, "Request body is too large or unreadable")
+		respond.WriteInvalidRequest(rw, r, w.logger, "Request body is too large or unreadable")
 		return
 	}
 	r.Body = io.NopCloser(bytes.NewReader(body))
@@ -48,13 +47,15 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 
 	if err != nil {
 		status, problem := domainerror.Problem(err)
-		log.Printf("idempotent key: %v", err)
-		respond.WriteProblemBody(rw, r, status, problem)
+		if status >= http.StatusInternalServerError {
+			w.logger.ErrorContext(r.Context(), "acquire idempotency key failed", "error", err)
+		}
+		respond.WriteProblemBody(rw, r, w.logger, status, problem)
 		return
 	}
 
 	if result.Replay {
-		WriteCreateTripResponse(rw, r, w.getter, http.StatusCreated, result.TripID)
+		WriteCreateTripResponse(w.logger, rw, r, w.getter, http.StatusCreated, result.TripID)
 		return
 	}
 
@@ -66,7 +67,7 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 		defer func() {
 			if !completed {
 				if err := w.usecase.Release(context.WithoutCancel(r.Context()), key); err != nil {
-					log.Printf("idempotency delete after panic: %v", err)
+					w.logger.ErrorContext(r.Context(), "release idempotency key after panic failed", "error", err)
 				}
 			}
 		}()
@@ -76,11 +77,11 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 
 	if rec.status >= 400 {
 		if err := w.usecase.Release(context.WithoutCancel(r.Context()), key); err != nil {
-			log.Printf("idempotency release: %v", err)
+			w.logger.ErrorContext(r.Context(), "release idempotency key failed", "error", err)
 		}
 	} else {
 		if err := w.usecase.Complete(context.WithoutCancel(r.Context()), key); err != nil {
-			log.Printf("idempotency complete: %v", err)
+			w.logger.ErrorContext(r.Context(), "complete idempotency key failed", "error", err)
 		}
 	}
 }

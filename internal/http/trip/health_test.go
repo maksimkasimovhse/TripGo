@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +21,7 @@ func TestHealth(t *testing.T) {
 
 	readiness := NewMockReadinessChecker(gomock.NewController(t))
 
-	h := trip.New(nil, nil, nil, readiness, time.Second)
+	h := trip.New(slog.New(slog.DiscardHandler), nil, nil, nil, readiness, time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rec := httptest.NewRecorder()
@@ -65,7 +66,7 @@ func TestReady(t *testing.T) {
 
 			readiness := NewMockReadinessChecker(gomock.NewController(t))
 
-			h := trip.New(nil, nil, nil, readiness, time.Second)
+			h := trip.New(slog.New(slog.DiscardHandler), nil, nil, nil, readiness, time.Second)
 
 			req := httptest.NewRequest(http.MethodGet, "/ready", nil)
 			rec := httptest.NewRecorder()

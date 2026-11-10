@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
@@ -18,13 +19,14 @@ type idempotencyUsecase interface {
 }
 
 type WithIdempotency struct {
+	logger *slog.Logger
 	api.ServerInterface
 	usecase idempotencyUsecase
 	getter  tripGetter
 }
 
-func NewWithIdempotency(h api.ServerInterface, usecase idempotencyUsecase, getter tripGetter) *WithIdempotency {
-	return &WithIdempotency{ServerInterface: h, usecase: usecase, getter: getter}
+func NewWithIdempotency(logger *slog.Logger, h api.ServerInterface, usecase idempotencyUsecase, getter tripGetter) *WithIdempotency {
+	return &WithIdempotency{logger: logger, ServerInterface: h, usecase: usecase, getter: getter}
 }
 
 type tripGetter interface {

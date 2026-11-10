@@ -89,6 +89,18 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (trip.Trip, 
 
 const activeTripPerDriverIdx = "trips_one_active_per_driver_idx"
 
+func (r *TripRepository) CountActive(ctx context.Context) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+
+	var count int64
+	err := r.pool.QueryRow(ctx, "SELECT count(*) FROM trips WHERE status = 'active'").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count active trips: %w", err)
+	}
+	return count, nil
+}
+
 func (r *TripRepository) Create(ctx context.Context, tripForCreate trip.Trip) error {
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()

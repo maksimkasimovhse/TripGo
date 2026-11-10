@@ -1,13 +1,16 @@
 package main
 
 import (
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/maksimkasimovhse/TripGo/internal/app"
+	"github.com/maksimkasimovhse/TripGo/internal/infra/telemetry"
 )
 
 func main() {
 	if err := app.Run(); err != nil {
-		log.Fatalf("service stopped: %v", err)
+		telemetry.NewLogger(slog.LevelInfo).Error("service failed", "error", err)
+		os.Exit(1)
 	}
 }

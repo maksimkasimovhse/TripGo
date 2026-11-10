@@ -3,21 +3,25 @@ package finish
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 )
 
 type Usecase struct {
+	logger      *slog.Logger
 	txm         txManager
 	tripRepo    tripRepo
 	historyRepo historyRepo
+	completed   metric.Int64Counter
 }
 
-func New(txm txManager, tripRepo tripRepo, historyRepo historyRepo) Usecase {
-	return Usecase{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo}
+func New(logger *slog.Logger, txm txManager, tripRepo tripRepo, historyRepo historyRepo, completed metric.Int64Counter) Usecase {
+	return Usecase{logger: logger, txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, completed: completed}
 }
 
 func (u *Usecase) Finish(ctx context.Context, tripID uuid.UUID) (trip.Trip, error) {
@@ -48,5 +52,7 @@ func (u *Usecase) Finish(ctx context.Context, tripID uuid.UUID) (trip.Trip, erro
 		return trip.Trip{}, fmt.Errorf("finish trip: %w", err)
 	}
 
+	u.completed.Add(ctx, 1)
+	u.logger.InfoContext(ctx, "trip completed", "trip_id", tripForFinish.ID.String())
 	return tripForFinish, nil
 }

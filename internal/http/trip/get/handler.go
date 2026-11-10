@@ -1,7 +1,7 @@
 package get
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
@@ -11,11 +11,12 @@ import (
 )
 
 type Handler struct {
+	logger     *slog.Logger
 	getUsecase getUsecase
 }
 
-func New(get getUsecase) *Handler {
-	return &Handler{getUsecase: get}
+func New(logger *slog.Logger, get getUsecase) *Handler {
+	return &Handler{logger: logger, getUsecase: get}
 }
 
 func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
@@ -23,10 +24,12 @@ func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.Tri
 
 	if err != nil {
 		status, problem := domainerror.Problem(err)
-		log.Printf("get trip %s: %v", tripID, err)
-		respond.WriteProblemBody(w, r, status, problem)
+		if status >= http.StatusInternalServerError {
+			h.logger.ErrorContext(r.Context(), "get trip failed", "error", err)
+		}
+		respond.WriteProblemBody(w, r, h.logger, status, problem)
 		return
 	}
 
-	respond.WriteJSON(w, http.StatusOK, trip.ToAPITrip(tripScan))
+	respond.WriteJSON(w, r, h.logger, http.StatusOK, trip.ToAPITrip(tripScan))
 }

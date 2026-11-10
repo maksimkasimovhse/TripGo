@@ -3,21 +3,25 @@ package create
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 )
 
 type Usecase struct {
+	logger      *slog.Logger
 	txm         txManager
 	tripRepo    tripRepo
 	historyRepo historyRepo
+	created     metric.Int64Counter
 }
 
-func New(txm txManager, tripRepo tripRepo, historyRepo historyRepo) Usecase {
-	return Usecase{txm: txm, tripRepo: tripRepo, historyRepo: historyRepo}
+func New(logger *slog.Logger, txm txManager, tripRepo tripRepo, historyRepo historyRepo, created metric.Int64Counter) Usecase {
+	return Usecase{logger: logger, txm: txm, tripRepo: tripRepo, historyRepo: historyRepo, created: created}
 }
 
 type Input struct {
@@ -60,5 +64,7 @@ func (u *Usecase) Create(ctx context.Context, input Input) (trip.Trip, error) {
 		return trip.Trip{}, fmt.Errorf("create trip: %w", err)
 	}
 
+	u.created.Add(ctx, 1)
+	u.logger.InfoContext(ctx, "trip created", "trip_id", tripForCreate.ID.String())
 	return tripForCreate, nil
 }

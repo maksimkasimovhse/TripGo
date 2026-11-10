@@ -1,7 +1,7 @@
 package finish
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
@@ -11,11 +11,12 @@ import (
 )
 
 type Handler struct {
+	logger        *slog.Logger
 	finishUsecase finishUsecase
 }
 
-func New(finish finishUsecase) *Handler {
-	return &Handler{finishUsecase: finish}
+func New(logger *slog.Logger, finish finishUsecase) *Handler {
+	return &Handler{logger: logger, finishUsecase: finish}
 }
 
 func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
@@ -23,10 +24,12 @@ func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripID api.
 
 	if err != nil {
 		status, problem := domainerror.Problem(err)
-		log.Printf("finish trip %s: %v", tripID, err)
-		respond.WriteProblemBody(w, r, status, problem)
+		if status >= http.StatusInternalServerError {
+			h.logger.ErrorContext(r.Context(), "finish trip failed", "error", err)
+		}
+		respond.WriteProblemBody(w, r, h.logger, status, problem)
 		return
 	}
 
-	respond.WriteJSON(w, http.StatusOK, trip.ToAPITrip(tripForFinish))
+	respond.WriteJSON(w, r, h.logger, http.StatusOK, trip.ToAPITrip(tripForFinish))
 }

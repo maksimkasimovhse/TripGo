@@ -1,19 +1,28 @@
 package create_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/mock/gomock"
 )
 
 func TestCreateSuccess(t *testing.T) {
 	t.Parallel()
+
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	counter := &recordingCounter{}
 
 	ctrl := gomock.NewController(t)
 	repo := NewMockTripRepository(ctrl)
@@ -28,7 +37,16 @@ func TestCreateSuccess(t *testing.T) {
 	txm.EXPECT().
 		Do(ctx, gomock.Any()).
 		DoAndReturn(func(_ context.Context, fn func(context.Context) error) error {
-			return fn(txCtx)
+			if err := fn(txCtx); err != nil {
+				return err
+			}
+			if output.Len() != 0 {
+				t.Error("business event logged before transaction commit")
+			}
+			if counter.value != 0 {
+				t.Error("trip counted before transaction commit")
+			}
+			return nil
 		})
 
 	var saved trip.Trip
@@ -49,10 +67,13 @@ func TestCreateSuccess(t *testing.T) {
 			}),
 	)
 
-	uc := create.New(txm, repo, history)
+	uc := create.New(logger, txm, repo, history, counter)
 	got, err := uc.Create(ctx, input)
 	if err != nil {
 		t.Fatalf("Create() error = %v, want nil", err)
+	}
+	if counter.value != 1 {
+		t.Errorf("created trips = %d, want 1", counter.value)
 	}
 
 	want := trip.Trip{
@@ -82,6 +103,14 @@ func TestCreateSuccess(t *testing.T) {
 	if !got.StartedAt.Equal(got.StartedAt.Truncate(time.Microsecond)) {
 		t.Errorf("StartedAt = %v, want microsecond precision", got.StartedAt)
 	}
+	var record map[string]any
+	if err := json.Unmarshal(output.Bytes(), &record); err != nil {
+		t.Fatalf("expected one JSON business event: %v", err)
+	}
+	if record["msg"] != "trip created" || record["trip_id"] != input.ID.String() || record["level"] != "INFO" {
+		t.Errorf("business event = %+v", record)
+	}
+
 }
 
 func TestCreateInvalidInput(t *testing.T) {
@@ -112,7 +141,7 @@ func TestCreateInvalidInput(t *testing.T) {
 			input := validInput()
 			tt.change(&input)
 
-			uc := create.New(txm, repo, history)
+			uc := create.New(slog.New(slog.DiscardHandler), txm, repo, history, noop.Int64Counter{})
 			got, err := uc.Create(context.Background(), input)
 
 			var validationErr *trip.ValidationError
@@ -157,6 +186,10 @@ func TestCreateDependencyErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			var output bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&output, nil))
+			counter := &recordingCounter{}
+
 			ctrl := gomock.NewController(t)
 			repo := NewMockTripRepository(ctrl)
 			history := NewMockHistoryRepository(ctrl)
@@ -186,10 +219,16 @@ func TestCreateDependencyErrors(t *testing.T) {
 				}
 			}
 
-			uc := create.New(txm, repo, history)
+			uc := create.New(logger, txm, repo, history, counter)
 			got, err := uc.Create(ctx, input)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("Create() error = %v, want %v", err, tt.wantErr)
+			}
+			if output.Len() != 0 {
+				t.Errorf("business event logged for failed operation: %s", output.String())
+			}
+			if counter.value != 0 {
+				t.Errorf("failed creation increased counter to %d", counter.value)
 			}
 			if got != (trip.Trip{}) {
 				t.Errorf("Create() = %+v, want empty trip on error", got)
@@ -209,4 +248,13 @@ func validInput() create.Input {
 		EndLongitude:   38,
 		Price:          100,
 	}
+}
+
+type recordingCounter struct {
+	noop.Int64Counter
+	value int64
+}
+
+func (c *recordingCounter) Add(_ context.Context, value int64, _ ...metric.AddOption) {
+	c.value += value
 }

@@ -55,6 +55,12 @@ curl -i localhost:8080/ready
 | `DATABASE_URL` | да | — | строка подключения к PostgreSQL |
 | `HTTP_ADDR` | нет | `:8080` | адрес HTTP-сервера |
 | `LOG_LEVEL` | нет | `info` | `debug`, `info`, `warn`, `error` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | нет | `http://localhost:4317` для gRPC, `http://localhost:4318` для HTTP | адрес Collector; для lab 02 берите из `.env` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | нет | `grpc` | `grpc` или `http/protobuf` |
+| `OTEL_TRACES_SAMPLER` | нет | `parentbased_always_on` | стратегия семплирования SDK |
+| `OTEL_TRACES_SAMPLER_ARG` | нет | — | доля для `traceidratio` / `parentbased_traceidratio`, от 0 до 1 |
+| `OTEL_METRIC_EXPORT_INTERVAL` | нет | `60000` | период отправки метрик в миллисекундах; в `.env.example` — `10000` |
+| `OTEL_METRIC_EXPORT_TIMEOUT` | нет | `30000` | бюджет сбора и отправки метрик в миллисекундах; в `.env.example` — `2000`; сетевой таймаут экспортёра — 2 секунды |
 | `SHUTDOWN_TIMEOUT` | нет | `5s` | бюджет на graceful shutdown |
 | `HTTP_READ_HEADER_TIMEOUT` | нет | `2s` | время на чтение заголовков запроса |
 | `HTTP_READ_TIMEOUT` | нет | `10s` | время на чтение всего запроса |
@@ -91,7 +97,7 @@ curl -i localhost:8080/ready
 Ожидаемый ответ на обе команды: `200 OK` и `{"status":"ok"}`.
 
 Контейнер подключается к PostgreSQL через docker-сеть `kind`, по имени узла
-кластера и NodePort (`tripgo-local-control-plane:30103`). Порт, который
+кластера и NodePort (`tripgo-local-control-plane:30203` для lab 02). Порт, который
 `tripgoctl` пробрасывает на хост (`localhost:2xxxx`), слушает только
 `127.0.0.1`, поэтому из контейнера он недоступен. Сеть и адрес можно
 переопределить: `make docker-run DOCKER_NETWORK=... DOCKER_DATABASE_URL=...`.
@@ -178,15 +184,191 @@ Dockerfile                           многостадийная сборка �
 
 ### Невыполненные требования
 
-Проверка зависимостей через depguard и инициализация OpenTelemetry/slog пока
-отсутствуют. Добавлены интеграционные тесты создания, чтения и завершения
+Проверка зависимостей через depguard пока отсутствует.
+Добавлены интеграционные тесты создания, чтения и завершения
 поездки, отсутствующих записей, занятого и освободившегося водителя,
 истории статусов и ключей идемпотентности. Отдельные сценарии проверяют
 коммит создания и завершения через реальные usecase, откат вставки поездки
 и откат её завершения при ошибке записи истории.
 `make test` пока не выводит покрытие. Это невыполненные требования, а не
-обоснованные архитектурные отступления. Переменная `LOG_LEVEL` проверяется,
-но ещё не управляет обычным логгером `log`.
+обоснованные архитектурные отступления.
+
+## Логирование
+
+`infra/telemetry.NewLogger` создаёт `slog.Logger` с JSON-выводом в stdout
+и полем `service=trip-service`. `LOG_LEVEL` задаёт минимальный уровень:
+`debug`, `info`, `warn`, `error`. Логгер передаётся через контейнер
+обработчикам, middleware и usecase создания и завершения поездки.
+Глобальные `log.Printf` и `slog.Default()` не используются.
+
+Middleware `RequestLogging` записывает одну запись `request handled` после
+обработки запроса: `method`, `route`, `status`, `duration_ms`.
+В `route` используется шаблон chi, например `/api/v1/trips/{tripId}`;
+для неизвестных маршрутов — постоянное значение `unmatched`.
+Тела запросов, ответов и query string не записываются.
+Ответы 2xx–4xx логируются на уровне Info, 5xx — Error.
+
+Usecase отдельно записывают `trip created` и `trip completed` с `trip_id`
+только после успешного возврата из менеджера транзакций. При ошибке коммита
+событие успеха не записывается. Внутренние ошибки логируются как отдельная
+диагностика, а наружу возвращается безопасный Problem.
+
+`Recover` логирует панику со стеком и возвращает `500 internal_error`, если
+ответ ещё не отправлен. Заголовки уже отправленного ответа изменить нельзя.
+Порядок подключённых middleware: Recover → Tracing → Logging → Metrics → роутер.
+
+Обработчик логов добавляет `trace_id` и `span_id` из контекста спана.
+Для этого код использует контекстные методы `InfoContext`, `ErrorContext`
+и `Log`. Без валидного спана идентификаторы не выдумываются.
+HTTP-спаны и экспорт в коллектор подключены; идентификатор из лога можно
+вставить в поиск Jaeger.
+
+## Трейсы и Jaeger
+
+Путь данных: сервис → OTLP → OpenTelemetry Collector → Jaeger.
+`infra/telemetry.NewTracing` создаёт SDK и фоновый пакетный экспортёр.
+Контейнер передаёт один `TracerProvider` в HTTP middleware и пул pgx.
+Домен и usecase не знают о Jaeger.
+
+`otelhttp` создаёт серверный спан на запрос, `otelpgx` — дочерние спаны
+запросов PostgreSQL, включая запросы внутри транзакций. Имя HTTP-спана
+содержит шаблон маршрута: `GET /api/v1/trips/{tripId}`. Неизвестный маршрут
+называется `GET unmatched`. Заголовок W3C `traceparent` продолжает входящий
+трейс; без него SDK создаёт новый. Контекст передаётся до репозитория.
+
+SQL-спаны содержат `db.operation.name` и `db.collection.name` для таблиц
+`trips`, `trip_status_history`, `idempotency_keys`. Таблицы определяются
+по простым SQL-командам текущих репозиториев; при добавлении сложных запросов
+или новых таблиц нужно расширить `infra/postgres/queryCollection`.
+У `BEGIN` / `COMMIT` / `ROLLBACK` таблицы нет. Текст SQL и параметры
+в спаны не записываются. Ошибки SQL получают статус Error и `error.type`
+(SQLSTATE для ошибок PostgreSQL), HTTP 5xx и паники — статус Error;
+ожидаемые HTTP 4xx не считаются ошибками серверного спана.
+
+Ресурс сервиса: `service.name=trip-service`, `service.namespace=tripgo`,
+`deployment.environment=local`, `service.version=dev`. Версию сборки можно
+задать через `make run VERSION=...` или `make docker-build VERSION=...`.
+Обычный `go run ./cmd/service` использует `dev`.
+
+Запуск с настройками окружения:
+
+```bash
+tripgoctl environment start
+tripgoctl connect
+make migrate
+make run VERSION=lab02
+```
+
+`tripgoctl connect` показывает адреса сервисов. Для lab 02 в `.env` обычно
+указаны `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:22318` и
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`. Альтернатива — gRPC:
+`http://localhost:22317` и `grpc`. Переменные `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`
+и `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` имеют приоритет над общими настройками;
+для HTTP специфичный endpoint должен включать `/v1/traces`.
+В Docker используйте `make docker-run`: Collector доступен по NodePort
+`tripgo-local-control-plane:30206`; адрес меняется через `DOCKER_OTLP_ENDPOINT`.
+
+В другом терминале сделайте запросы создания, получения и завершения поездки,
+затем откройте адрес Jaeger из `tripgoctl connect` (обычно
+<http://localhost:22686>). Выберите сервис `trip-service`, нажмите Find Traces
+и откройте запрос. В нём видны HTTP-спан и вложенные SQL-спаны. Можно также
+скопировать `trace_id` из JSON-лога в поле поиска по Trace ID.
+Для `POST /api/v1/trips` без ключа идемпотентности ожидаются `BEGIN`,
+`INSERT trips`, `INSERT trip_status_history`, `COMMIT`.
+
+Для локальной разработки `parentbased_always_on` сохраняет все новые трейсы.
+`parentbased_traceidratio` с `OTEL_TRACES_SAMPLER_ARG=0.1` сохраняет примерно
+10% новых трейсов и следует решению семплирования родительского спана.
+`always_off` отключает запись спанов. Отсутствие трейса при семплировании
+не означает, что запрос не выполнялся.
+
+Если Collector недоступен, HTTP-сервис продолжает работать: экспорт выполняется
+в фоне, очередь ограничена и не блокирует запросы. Ошибки экспорта попадают
+в JSON-лог. При длительном отказе спаны могут теряться; очередь не заменяет
+постоянное хранилище. При остановке сначала завершаются HTTP-запросы и
+SDK метрик делает последний сбор и отправку, закрывается пул, затем SDK трейсов
+отправляет накопленные спаны в пределах отдельного общего `SHUTDOWN_TIMEOUT`
+для закрытия ресурсов.
+
+Тесты проверяют контекст родителя и дочерних спанов, имена и атрибуты,
+статусы ошибок и паник, связь с логами, реальный OTLP gRPC и HTTP/protobuf экспорт,
+семплирование и инициализацию при недоступном Collector для обоих протоколов.
+
+## Метрики
+
+Имена и атрибуты соответствуют [каталогу лабы](https://github.com/course-go-autumn-2026/course/blob/main/homework/docs/observability.md).
+Сервис отправляет метрики по OTLP в Collector; Prometheus забирает их из
+Collector, Grafana строит графики по данным Prometheus. Отдельная ручка
+`/metrics` в сервисе не нужна.
+
+| Метрика OTel | Тип | Где собирается |
+|---|---|---|
+| `http.server.request.duration` | histogram, секунды | middleware: метод, шаблон маршрута, HTTP-статус |
+| `http.server.active_requests` | up-down counter | middleware: метод и шаблон маршрута |
+| `db.client.operation.duration` | histogram, секунды | инструментирование пула: операция, таблица, тип ошибки при её наличии |
+| `tripgo.trips.created` | counter | usecase создания, после успешного коммита |
+| `tripgo.trips.completed` | counter | usecase завершения, после успешного коммита |
+| `tripgo.trips.active` | observable gauge | `SELECT count(*) FROM trips WHERE status = 'active'` при сборе метрик |
+
+HTTP middleware определяет шаблон маршрута до запуска обработчика, чтобы
+активные запросы уже во время выполнения имели правильный `http.route`.
+Неизвестные маршруты агрегируются под `unmatched`. Паника до отправки ответа
+учитывается как 500, число активных запросов уменьшается даже при панике.
+SQL-метрики работают независимо от семплирования трейсов. Автоматические
+метрики `otelhttp` и `otelpgx` отключены, чтобы измерения не дублировались;
+адаптер пула добавляет требуемые каталогом атрибуты SQL.
+
+Повтор идемпотентного запроса не увеличивает счётчик созданных поездок,
+поскольку usecase создания повторно не вызывается. Ошибка коммита также
+не увеличивает бизнес-счётчики. Gauge активных поездок берёт фактическое
+состояние БД и корректно работает после перезапуска; при ошибке чтения значение
+пропускается, а в лог пишется ошибка. При нескольких экземплярах сервиса,
+читающих одну БД, для этого gauge используйте `max`, а не `sum`.
+
+Для метрик используются общие `OTEL_EXPORTER_OTLP_ENDPOINT` и
+`OTEL_EXPORTER_OTLP_PROTOCOL`. Специфичные переменные
+`OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` и `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`
+имеют приоритет; HTTP endpoint для метрик должен заканчиваться на `/v1/metrics`.
+`OTEL_METRIC_EXPORT_INTERVAL=10000` включает отправку раз в 10 секунд.
+По умолчанию SDK отправляет раз в 60 секунд; добавьте настройку в `.env`
+или запустите `OTEL_METRIC_EXPORT_INTERVAL=10000 make run`.
+
+После создания и завершения поездки подождите период экспорта и опроса
+Prometheus. Откройте Grafana → Explore → Prometheus (адреса — в
+`tripgoctl connect`). В Prometheus точки в именах заменяются подчёркиваниями,
+счётчики обычно получают суффикс `_total`, секунды — `_seconds`.
+Сначала найдите реальные имена запросами:
+
+```promql
+{__name__=~"http_server_request_duration.*|http_server_active_requests.*|db_client_operation_duration.*|tripgo_trips_.*"}
+```
+
+При стандартном преобразовании имён Collector примеры запросов такие:
+
+```promql
+# RPS по маршрутам
+sum by (http_route) (rate(http_server_request_duration_seconds_count[5m]))
+
+# p95 времени ответа по маршрутам
+histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket[5m])))
+
+# Доля HTTP 5xx
+sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))
+/
+sum(rate(http_server_request_duration_seconds_count[5m]))
+
+# Созданные поездки в секунду
+sum(rate(tripgo_trips_created_total[5m]))
+
+# Активные поездки в общей БД
+max(tripgo_trips_active)
+```
+
+SDK хранит агрегаты в памяти и отправляет в фоне. При отказе Collector
+запросы продолжают выполняться, ошибки экспорта логируются; гарантированной
+доставки и хранения метрик на диске в сервисе нет. Тесты проверяют значения
+и типы метрик через ManualReader, учёт ошибок и коммитов, а также настоящий
+экспорт gRPC и HTTP/protobuf на локальные тестовые приёмники.
 
 ## Тесты
 

@@ -1,6 +1,7 @@
 package trip
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 const MaxBodyBytes = 1 << 20
 
 type Handler struct {
+	logger       *slog.Logger
 	create       createTrip
 	finish       finishTrip
 	get          getTrip
@@ -17,8 +19,8 @@ type Handler struct {
 	readyTimeout time.Duration
 }
 
-func New(createHandler createTrip, finishHandler finishTrip, getHandler getTrip, readiness readinessChecker, readyTimeout time.Duration) *Handler {
-	return &Handler{create: createHandler, finish: finishHandler, get: getHandler, readiness: readiness, readyTimeout: readyTimeout}
+func New(logger *slog.Logger, createHandler createTrip, finishHandler finishTrip, getHandler getTrip, readiness readinessChecker, readyTimeout time.Duration) *Handler {
+	return &Handler{logger: logger, create: createHandler, finish: finishHandler, get: getHandler, readiness: readiness, readyTimeout: readyTimeout}
 }
 
 func (h *Handler) CreateTrip(

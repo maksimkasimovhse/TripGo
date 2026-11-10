@@ -2,7 +2,6 @@ package trip
 
 import (
 	"context"
-	"log"
 	"net/http"
 
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
@@ -16,7 +15,7 @@ type readinessChecker interface {
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	respond.WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	respond.WriteJSON(w, r, h.logger, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
 
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
@@ -24,9 +23,9 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.readiness.Ping(ctx); err != nil {
-		log.Printf("db ping failed: %v", err)
-		respond.WriteJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
+		h.logger.ErrorContext(r.Context(), "database readiness failed", "error", err)
+		respond.WriteJSON(w, r, h.logger, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return
 	}
-	respond.WriteJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	respond.WriteJSON(w, r, h.logger, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }

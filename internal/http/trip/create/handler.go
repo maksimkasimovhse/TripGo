@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -15,21 +15,22 @@ import (
 )
 
 type Handler struct {
+	logger        *slog.Logger
 	createUsecase createUsecase
 }
 
-func New(create createUsecase) *Handler {
-	return &Handler{createUsecase: create}
+func New(logger *slog.Logger, create createUsecase) *Handler {
+	return &Handler{logger: logger, createUsecase: create}
 }
 
 func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, trip.MaxBodyBytes))
 	if err != nil {
-		respond.WriteInvalidRequest(w, r, "Request body is too large or unreadable")
+		respond.WriteInvalidRequest(w, r, h.logger, "Request body is too large or unreadable")
 		return
 	}
 	if msg := CheckRequiredFields(body); msg != "" {
-		respond.WriteInvalidRequest(w, r, msg)
+		respond.WriteInvalidRequest(w, r, h.logger, msg)
 		return
 	}
 
@@ -38,7 +39,7 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 
 	var req api.TripData
 	if err := dec.Decode(&req); err != nil {
-		respond.WriteInvalidRequest(w, r, "Request body is not valid JSON or contains unknown fields")
+		respond.WriteInvalidRequest(w, r, h.logger, "Request body is not valid JSON or contains unknown fields")
 		return
 	}
 
@@ -52,11 +53,13 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 
 	if err != nil {
 		status, problem := domainerror.Problem(err)
-		log.Printf("create trip: %v", err)
-		respond.WriteProblemBody(w, r, status, problem)
+		if status >= http.StatusInternalServerError {
+			h.logger.ErrorContext(r.Context(), "create trip failed", "error", err)
+		}
+		respond.WriteProblemBody(w, r, h.logger, status, problem)
 		return
 	}
 
 	w.Header().Set("Location", trip.TripLocation(tripForCreate.ID))
-	respond.WriteJSON(w, http.StatusCreated, trip.ToAPITrip(tripForCreate))
+	respond.WriteJSON(w, r, h.logger, http.StatusCreated, trip.ToAPITrip(tripForCreate))
 }

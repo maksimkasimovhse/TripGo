@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -47,7 +48,7 @@ func TestFinishTripSuccess(t *testing.T) {
 		Finish(req.Context(), ride.ID).
 		Return(ride, nil)
 
-	finish.New(uc).FinishTrip(rec, req, ride.ID)
+	finish.New(slog.New(slog.DiscardHandler), uc).FinishTrip(rec, req, ride.ID)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
@@ -133,7 +134,7 @@ func TestFinishTripErrors(t *testing.T) {
 
 			uc.EXPECT().Finish(req.Context(), id).Return(trip.Trip{}, tt.err)
 
-			finish.New(uc).FinishTrip(rec, req, id)
+			finish.New(slog.New(slog.DiscardHandler), uc).FinishTrip(rec, req, id)
 
 			if rec.Code != tt.status {
 				t.Fatalf("status=%d want=%d body=%s", rec.Code, tt.status, rec.Body.String())
@@ -165,9 +166,9 @@ func TestFinishTripInvalidID(t *testing.T) {
 
 	uc := NewMockFinishUsecase(gomock.NewController(t))
 
-	server := triphttp.New(nil, finish.New(uc), nil, nil, time.Second)
+	server := triphttp.New(slog.New(slog.DiscardHandler), nil, finish.New(slog.New(slog.DiscardHandler), uc), nil, nil, time.Second)
 
-	router := api.HandlerWithOptions(server, api.ChiServerOptions{ErrorHandlerFunc: triphttp.ParamErrorHandler})
+	router := api.HandlerWithOptions(server, api.ChiServerOptions{ErrorHandlerFunc: triphttp.ParamErrorHandler(slog.New(slog.DiscardHandler))})
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/trips/not-a-uuid/finish", nil)
 	rec := httptest.NewRecorder()
