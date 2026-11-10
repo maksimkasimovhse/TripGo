@@ -2,6 +2,7 @@ package create
 
 import (
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 )

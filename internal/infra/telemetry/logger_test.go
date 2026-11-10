@@ -10,6 +10,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	httpProtobufProtocol = "http/protobuf"
+	expectedServiceName  = "trip-service"
+	grpcProtocol         = "grpc"
+	createdMetricName    = "tripgo.trips.created"
+)
+
 func TestLoggerLevel(t *testing.T) {
 	t.Parallel()
 
@@ -46,7 +53,7 @@ func TestLoggerLevel(t *testing.T) {
 					t.Fatalf("invalid JSON: %v", err)
 				}
 				wantLevel := levels[len(levels)-tt.want+i].String()
-				if record["level"] != wantLevel || record["service"] != "trip-service" || record["msg"] != "event" {
+				if record["level"] != wantLevel || record["service"] != expectedServiceName || record["msg"] != "event" {
 					t.Errorf("unexpected record: %+v", record)
 				}
 			}
@@ -95,7 +102,7 @@ func TestLoggerSpanContext(t *testing.T) {
 					t.Error("span_id present without a span")
 				}
 			}
-			if record["component"] != "test" || record["service"] != "trip-service" || record["status"] != float64(200) {
+			if record["component"] != "test" || record["service"] != expectedServiceName || record["status"] != float64(200) {
 				t.Errorf("attributes lost: %+v", record)
 			}
 		})

@@ -9,9 +9,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 )
 
 func TestHTTPLogSpanCorrelation(t *testing.T) {

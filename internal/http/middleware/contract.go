@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"

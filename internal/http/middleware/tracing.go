@@ -25,7 +25,7 @@ func Tracing(provider trace.TracerProvider) func(http.Handler) http.Handler {
 			defer func() {
 				route := requestRoute(r)
 				span.SetName(r.Method + " " + route)
-				if route != "unmatched" {
+				if route != unmatchedRoute {
 					span.SetAttributes(attribute.String("http.route", route))
 				}
 

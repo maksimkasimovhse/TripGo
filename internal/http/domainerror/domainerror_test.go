@@ -106,7 +106,7 @@ func TestProblem(t *testing.T) {
 			if status != tt.wantStatus {
 				t.Errorf("status = %d, want %d", status, tt.wantStatus)
 			}
-			if body.Status != int32(status) {
+			if int(body.Status) != status {
 				t.Errorf("body.Status = %d, want returned status %d", body.Status, status)
 			}
 			if body.Code != tt.wantCode {

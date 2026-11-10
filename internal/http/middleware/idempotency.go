@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
@@ -44,7 +45,6 @@ func (w *WithIdempotency) handleCreateTripIdempotent(rw http.ResponseWriter, r *
 	hash := sha256.Sum256(body)
 
 	result, err := w.usecase.Acquire(r.Context(), key, hash)
-
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		if status >= http.StatusInternalServerError {

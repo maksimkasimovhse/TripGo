@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	triphttp "github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
 	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
-	"go.uber.org/mock/gomock"
 )
 
 const validBody = `{"user_id":"5cb72c04-7650-45c9-a79b-bcdba0631e0c","driver_id":"8860b315-ec86-42eb-a17c-7c163d721ff5","start_point":{"latitude":55.75,"longitude":37.61},"end_point":{"latitude":59.93,"longitude":30.31},"price":100}`
@@ -185,6 +186,7 @@ type unreadableBody struct{}
 func (unreadableBody) Read([]byte) (int, error) {
 	return 0, errors.New("private read failure")
 }
+
 func (unreadableBody) Close() error {
 	return nil
 }
@@ -284,7 +286,7 @@ func checkCreateProblem(t *testing.T, rec *httptest.ResponseRecorder, status int
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Code != code || body.Status != int32(status) {
+	if body.Code != code || int(body.Status) != status {
 		t.Errorf("problem=%+v want=%d %s", body, status, code)
 	}
 	if body.Instance == nil || *body.Instance != "/api/v1/trips" {

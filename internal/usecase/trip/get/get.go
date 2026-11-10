@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 )
 

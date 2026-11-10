@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 )
@@ -21,6 +22,8 @@ type TripRepository struct {
 	sb           sq.StatementBuilderType
 	queryTimeout time.Duration
 }
+
+const statusColumn = "status"
 
 func NewTripRepository(pool *pgxpool.Pool, queryTimeout time.Duration) *TripRepository {
 	return &TripRepository{
@@ -33,7 +36,7 @@ func NewTripRepository(pool *pgxpool.Pool, queryTimeout time.Duration) *TripRepo
 var tripColumns = []string{
 	"id", "user_id", "driver_id",
 	"start_latitude", "start_longitude", "end_latitude", "end_longitude",
-	"price", "status",
+	"price", statusColumn,
 	"started_at", "finished_at", "created_at", "updated_at",
 }
 
@@ -68,7 +71,6 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (trip.Trip, 
 		From("trips").
 		Where(sq.Eq{"id": id}).
 		ToSql()
-
 	if err != nil {
 		return trip.Trip{}, fmt.Errorf("build get trip query: %w", err)
 	}
@@ -116,10 +118,9 @@ func (r *TripRepository) Create(ctx context.Context, tripForCreate trip.Trip) er
 			"end_latitude":    tripForCreate.EndLatitude,
 			"end_longitude":   tripForCreate.EndLongitude,
 			"price":           tripForCreate.Price,
-			"status":          tripForCreate.Status,
+			statusColumn:      tripForCreate.Status,
 			"started_at":      tripForCreate.StartedAt,
 		}).ToSql()
-
 	if err != nil {
 		return fmt.Errorf("build create trip query: %w", err)
 	}
@@ -134,7 +135,6 @@ func (r *TripRepository) Create(ctx context.Context, tripForCreate trip.Trip) er
 	}
 
 	return nil
-
 }
 
 func (r *TripRepository) Finish(ctx context.Context, id uuid.UUID, finishedAt time.Time) (trip.Trip, error) {
@@ -144,13 +144,12 @@ func (r *TripRepository) Finish(ctx context.Context, id uuid.UUID, finishedAt ti
 	query, args, err := r.sb.
 		Update("trips").
 		SetMap(map[string]any{
-			"status":      trip.StatusCompleted,
+			statusColumn:  trip.StatusCompleted,
 			"updated_at":  finishedAt,
 			"finished_at": finishedAt,
-		}).Where(sq.Eq{"id": id, "status": trip.StatusActive}).
+		}).Where(sq.Eq{"id": id, statusColumn: trip.StatusActive}).
 		Suffix("RETURNING " + strings.Join(tripColumns, ", ")).
 		ToSql()
-
 	if err != nil {
 		return trip.Trip{}, fmt.Errorf("build finish trip query: %w", err)
 	}

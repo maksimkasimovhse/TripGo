@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -19,7 +18,7 @@ var Version = "dev"
 
 func NewTracing(ctx context.Context, logger *slog.Logger) (*sdktrace.TracerProvider, error) {
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-		logger.ErrorContext(context.Background(), "telemetry export failed", "error", err)
+		logger.ErrorContext(context.WithoutCancel(ctx), "telemetry export failed", "error", err)
 	}))
 
 	protocol := os.Getenv("OTEL_EXPORTER_OTLP_TRACES_PROTOCOL")
@@ -31,9 +30,9 @@ func NewTracing(ctx context.Context, logger *slog.Logger) (*sdktrace.TracerProvi
 	var err error
 	switch protocol {
 	case "", "grpc":
-		exporter, err = otlptracegrpc.New(ctx, otlptracegrpc.WithTimeout(2*time.Second))
+		exporter, err = otlptracegrpc.New(ctx)
 	case "http/protobuf":
-		exporter, err = otlptracehttp.New(ctx, otlptracehttp.WithTimeout(2*time.Second))
+		exporter, err = otlptracehttp.New(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported OTLP traces protocol %q: use grpc or http/protobuf", protocol)
 	}
@@ -43,10 +42,7 @@ func NewTracing(ctx context.Context, logger *slog.Logger) (*sdktrace.TracerProvi
 
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithResource(serviceResource()),
-		sdktrace.WithBatcher(exporter,
-			sdktrace.WithBatchTimeout(time.Second),
-			sdktrace.WithExportTimeout(2*time.Second),
-		),
+		sdktrace.WithBatcher(exporter),
 	), nil
 }
 
@@ -57,5 +53,4 @@ func serviceResource() *resource.Resource {
 		attribute.String("service.namespace", "tripgo"),
 		attribute.String("deployment.environment", "local"),
 	)
-
 }

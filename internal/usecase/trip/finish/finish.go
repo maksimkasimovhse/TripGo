@@ -47,7 +47,6 @@ func (u *Usecase) Finish(ctx context.Context, tripID uuid.UUID) (trip.Trip, erro
 		}
 		return nil
 	})
-
 	if err != nil {
 		return trip.Trip{}, fmt.Errorf("finish trip: %w", err)
 	}

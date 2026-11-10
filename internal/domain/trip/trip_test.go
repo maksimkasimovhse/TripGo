@@ -17,7 +17,6 @@ func TestTripFinishActive(t *testing.T) {
 	}
 
 	err := ride.Finish(at)
-
 	if err != nil {
 		t.Fatalf("Finish() returned unexpected error: %v", err)
 	}
@@ -33,7 +32,6 @@ func TestTripFinishActive(t *testing.T) {
 	if !ride.FinishedAt.Equal(at) {
 		t.Errorf("FinishedAt = %q, want %q", *ride.FinishedAt, at)
 	}
-
 }
 
 func TestTripFinishCompleted(t *testing.T) {

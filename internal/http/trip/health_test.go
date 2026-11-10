@@ -11,10 +11,13 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/mock/gomock"
+
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip"
-	"go.uber.org/mock/gomock"
 )
+
+const unavailableStatus = "unavailable"
 
 func TestHealth(t *testing.T) {
 	t.Parallel()
@@ -47,16 +50,16 @@ func TestReady(t *testing.T) {
 			bodyStatus: "ok",
 		},
 		{
-			name:       "unavailable",
+			name:       unavailableStatus,
 			pingErr:    errors.New("password=private"),
 			status:     http.StatusServiceUnavailable,
-			bodyStatus: "unavailable",
+			bodyStatus: unavailableStatus,
 		},
 		{
 			name:       "timeout",
 			pingErr:    context.DeadlineExceeded,
 			status:     http.StatusServiceUnavailable,
-			bodyStatus: "unavailable",
+			bodyStatus: unavailableStatus,
 		},
 	}
 

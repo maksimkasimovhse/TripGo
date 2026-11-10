@@ -5,9 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/maksimkasimovhse/TripGo/internal/config"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/maksimkasimovhse/TripGo/internal/config"
 )
 
 func NewPool(ctx context.Context, cfg *config.Config, provider trace.TracerProvider, meters metric.MeterProvider) (*pgxpool.Pool, error) {

@@ -59,7 +59,6 @@ func (u *Usecase) Create(ctx context.Context, input Input) (trip.Trip, error) {
 		}
 		return u.historyRepo.Add(ctx, tripForCreate.ID, nil, trip.StatusActive, tripForCreate.StartedAt)
 	})
-
 	if err != nil {
 		return trip.Trip{}, fmt.Errorf("create trip: %w", err)
 	}

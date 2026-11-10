@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
-	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	"go.uber.org/mock/gomock"
+
+	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
+	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 )
 
 func TestCreateSuccess(t *testing.T) {
@@ -110,7 +111,6 @@ func TestCreateSuccess(t *testing.T) {
 	if record["msg"] != "trip created" || record["trip_id"] != input.ID.String() || record["level"] != "INFO" {
 		t.Errorf("business event = %+v", record)
 	}
-
 }
 
 func TestCreateInvalidInput(t *testing.T) {

@@ -6,7 +6,13 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
+)
+
+const (
+	startPointField = "start_point"
+	endPointField   = "end_point"
 )
 
 func TestTripValidate(t *testing.T) {
@@ -78,14 +84,14 @@ func TestTripValidate(t *testing.T) {
 			ride: with(func(r *trip.Trip) {
 				r.StartLatitude = -90.001
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "start latitude above maximum",
 			ride: with(func(r *trip.Trip) {
 				r.StartLatitude = 90.001
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "start longitude minimum is valid",
@@ -104,14 +110,14 @@ func TestTripValidate(t *testing.T) {
 			ride: with(func(r *trip.Trip) {
 				r.StartLongitude = -180.001
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "start longitude above maximum",
 			ride: with(func(r *trip.Trip) {
 				r.StartLongitude = 180.001
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "end latitude minimum is valid",
@@ -130,14 +136,14 @@ func TestTripValidate(t *testing.T) {
 			ride: with(func(r *trip.Trip) {
 				r.EndLatitude = -90.001
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "end latitude above maximum",
 			ride: with(func(r *trip.Trip) {
 				r.EndLatitude = 90.001
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "end longitude minimum is valid",
@@ -156,14 +162,14 @@ func TestTripValidate(t *testing.T) {
 			ride: with(func(r *trip.Trip) {
 				r.EndLongitude = -180.001
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "end longitude above maximum",
 			ride: with(func(r *trip.Trip) {
 				r.EndLongitude = 180.001
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "zero coordinates are valid",
@@ -179,42 +185,42 @@ func TestTripValidate(t *testing.T) {
 			ride: with(func(r *trip.Trip) {
 				r.StartLatitude = math.NaN()
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "NaN start longitude",
 			ride: with(func(r *trip.Trip) {
 				r.StartLongitude = math.NaN()
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "NaN end latitude",
 			ride: with(func(r *trip.Trip) {
 				r.EndLatitude = math.NaN()
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "NaN end longitude",
 			ride: with(func(r *trip.Trip) {
 				r.EndLongitude = math.NaN()
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 		{
 			name: "positive infinity",
 			ride: with(func(r *trip.Trip) {
 				r.StartLatitude = math.Inf(1)
 			}),
-			wantField: "start_point",
+			wantField: startPointField,
 		},
 		{
 			name: "negative infinity",
 			ride: with(func(r *trip.Trip) {
 				r.EndLongitude = math.Inf(-1)
 			}),
-			wantField: "end_point",
+			wantField: endPointField,
 		},
 	}
 
@@ -240,8 +246,6 @@ func TestTripValidate(t *testing.T) {
 			if validationErr.Field != tt.wantField {
 				t.Errorf("Field = %q, want %q", validationErr, tt.wantField)
 			}
-
 		})
 	}
-
 }

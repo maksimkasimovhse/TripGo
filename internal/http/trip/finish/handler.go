@@ -21,7 +21,6 @@ func New(logger *slog.Logger, finish finishUsecase) *Handler {
 
 func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
 	tripForFinish, err := h.finishUsecase.Finish(r.Context(), tripID)
-
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		if status >= http.StatusInternalServerError {

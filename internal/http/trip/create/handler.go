@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	"github.com/maksimkasimovhse/TripGo/internal/http/domainerror"
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
@@ -23,7 +24,7 @@ func New(logger *slog.Logger, create createUsecase) *Handler {
 	return &Handler{logger: logger, createUsecase: create}
 }
 
-func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
+func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, _ api.CreateTripParams) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, trip.MaxBodyBytes))
 	if err != nil {
 		respond.WriteInvalidRequest(w, r, h.logger, "Request body is too large or unreadable")
@@ -50,7 +51,6 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 
 	input := ToCreateInput(req, tripID)
 	tripForCreate, err := h.createUsecase.Create(r.Context(), input)
-
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		if status >= http.StatusInternalServerError {

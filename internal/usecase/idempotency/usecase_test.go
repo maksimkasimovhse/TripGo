@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	domain "github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/model"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/idempotency"
-	"go.uber.org/mock/gomock"
 )
 
 func TestAcquireNewKey(t *testing.T) {

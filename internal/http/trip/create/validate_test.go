@@ -7,6 +7,11 @@ import (
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/create"
 )
 
+const (
+	wantJSONObject   = "Request body must be a JSON object"
+	wantRequiredUser = "user_id is required"
+)
+
 func TestCheckRequiredFields(t *testing.T) {
 	t.Parallel()
 
@@ -31,14 +36,14 @@ func TestCheckRequiredFields(t *testing.T) {
 			name: "zero coordinates",
 			body: with(start, `"start_point":{"latitude":0,"longitude":0}`),
 		},
-		{name: "empty body", body: "", want: "Request body must be a JSON object"},
-		{name: "malformed JSON", body: `{`, want: "Request body must be a JSON object"},
-		{name: "array body", body: `[]`, want: "Request body must be a JSON object"},
-		{name: "number body", body: `42`, want: "Request body must be a JSON object"},
-		{name: "string body", body: `"text"`, want: "Request body must be a JSON object"},
-		{name: "empty object", body: `{}`, want: "user_id is required"},
-		{name: "missing user", body: with(user+",", ""), want: "user_id is required"},
-		{name: "null user", body: with(user, `"user_id":null`), want: "user_id is required"},
+		{name: "empty body", body: "", want: wantJSONObject},
+		{name: "malformed JSON", body: `{`, want: wantJSONObject},
+		{name: "array body", body: `[]`, want: wantJSONObject},
+		{name: "number body", body: `42`, want: wantJSONObject},
+		{name: "string body", body: `"text"`, want: wantJSONObject},
+		{name: "empty object", body: `{}`, want: wantRequiredUser},
+		{name: "missing user", body: with(user+",", ""), want: wantRequiredUser},
+		{name: "null user", body: with(user, `"user_id":null`), want: wantRequiredUser},
 		{name: "missing driver", body: with(driver+",", ""), want: "driver_id is required"},
 		{name: "null driver", body: with(driver, `"driver_id":null`), want: "driver_id is required"},
 		{name: "missing start", body: with(start+",", ""), want: "start_point is required"},

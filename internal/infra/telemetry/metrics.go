@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -23,9 +22,9 @@ func NewMetrics(ctx context.Context) (*sdkmetric.MeterProvider, error) {
 	var err error
 	switch protocol {
 	case "", "grpc":
-		exporter, err = otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithTimeout(2*time.Second))
+		exporter, err = otlpmetricgrpc.New(ctx)
 	case "http/protobuf":
-		exporter, err = otlpmetrichttp.New(ctx, otlpmetrichttp.WithTimeout(2*time.Second))
+		exporter, err = otlpmetrichttp.New(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported OTLP metrics protocol %q: use grpc or http/protobuf", protocol)
 	}

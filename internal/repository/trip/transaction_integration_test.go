@@ -12,12 +12,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.opentelemetry.io/otel/metric/noop"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 	"github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 	finishuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
-	"go.opentelemetry.io/otel/metric/noop"
 )
 
 func TestTripLifecycleHistoryCommitIntegration(t *testing.T) {

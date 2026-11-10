@@ -36,7 +36,7 @@ func TestTracingGRPCExport(t *testing.T) {
 	collectortrace.RegisterTraceServiceServer(server, receiver)
 	go func() { _ = server.Serve(listener) }()
 	defer server.Stop()
-	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", grpcProtocol)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://"+listener.Addr().String())
 	t.Setenv("OTEL_TRACES_SAMPLER", "always_on")
 
@@ -88,7 +88,7 @@ func TestTracingHTTPExport(t *testing.T) {
 		w.Header().Set("Content-Type", "application/x-protobuf")
 	}))
 	defer receiver.Close()
-	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf")
+	t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", httpProtobufProtocol)
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", receiver.URL)
 	t.Setenv("OTEL_TRACES_SAMPLER", "always_on")
 
@@ -115,7 +115,7 @@ func TestTracingHTTPExport(t *testing.T) {
 			attrs[attr.Key] = attr.Value.GetStringValue()
 		}
 		for key, want := range map[string]string{
-			"service.name": "trip-service", "service.version": Version,
+			"service.name": expectedServiceName, "service.version": Version,
 			"service.namespace": "tripgo", "deployment.environment": "local",
 		} {
 			if attrs[key] != want {
@@ -131,7 +131,7 @@ func TestTracingHTTPExport(t *testing.T) {
 }
 
 func TestTracingWithoutCollector(t *testing.T) {
-	for _, protocol := range []string{"grpc", "http/protobuf"} {
+	for _, protocol := range []string{grpcProtocol, httpProtobufProtocol} {
 		t.Run(protocol, func(t *testing.T) {
 			clearTracingEnv(t)
 			t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocol)

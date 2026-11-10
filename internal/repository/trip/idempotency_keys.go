@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/infra/postgres/transaction"
 	"github.com/maksimkasimovhse/TripGo/internal/model"
@@ -44,7 +45,6 @@ func (r *IdempotencyKeyRepository) TryInsert(ctx context.Context, id uuid.UUID, 
 		}).
 		Suffix("ON CONFLICT (id) DO NOTHING").
 		ToSql()
-
 	if err != nil {
 		return false, fmt.Errorf("build insert idempotency key query: %w", err)
 	}

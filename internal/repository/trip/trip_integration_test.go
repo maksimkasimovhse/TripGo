@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/repository/trip"
 )
@@ -143,7 +144,6 @@ func TestTripFinishActiveIntegration(t *testing.T) {
 	finishedAt := ride.StartedAt.Add(time.Hour)
 
 	got, err := repo.Finish(ctx, ride.ID, finishedAt)
-
 	if err != nil {
 		t.Fatalf("Finish(): %v", err)
 	}

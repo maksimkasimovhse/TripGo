@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/model"
 )

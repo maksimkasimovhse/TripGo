@@ -11,8 +11,11 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 )
+
+const testTripRoute = "/trips/{tripId}"
 
 func TestRequestLogging(t *testing.T) {
 	t.Parallel()
@@ -25,7 +28,7 @@ func TestRequestLogging(t *testing.T) {
 			logger := slog.New(slog.NewJSONHandler(&output, nil)).With("service", "trip-service")
 			router := chi.NewRouter()
 			router.Use(middleware.Recover(logger), middleware.RequestLogging(logger))
-			router.Post("/trips/{tripId}", func(w http.ResponseWriter, r *http.Request) {
+			router.Post(testTripRoute, func(w http.ResponseWriter, r *http.Request) {
 				if status != 0 {
 					w.WriteHeader(status)
 				}
@@ -56,7 +59,7 @@ func TestRequestLogging(t *testing.T) {
 			if record["msg"] != "request handled" || record["level"] != wantLevel || record["status"] != float64(wantStatus) {
 				t.Errorf("unexpected request record: %+v", record)
 			}
-			if record["route"] != "/trips/{tripId}" || record["method"] != "POST" || record["service"] != "trip-service" {
+			if record["route"] != testTripRoute || record["method"] != "POST" || record["service"] != "trip-service" {
 				t.Errorf("unexpected request attributes: %+v", record)
 			}
 			if duration, ok := record["duration_ms"].(float64); !ok || duration < 0 {
@@ -146,8 +149,9 @@ func TestRecoverLogsPanic(t *testing.T) {
 func decodeLogs(t *testing.T, output *bytes.Buffer) []map[string]any {
 	t.Helper()
 
-	var result []map[string]any
-	for _, line := range bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n")) {
+	lines := bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n"))
+	result := make([]map[string]any, 0, len(lines))
+	for _, line := range lines {
 		var record map[string]any
 		if err := json.Unmarshal(line, &record); err != nil {
 			t.Fatalf("invalid JSON log: %v; output=%s", err, output.String())

@@ -21,7 +21,6 @@ func New(logger *slog.Logger, get getUsecase) *Handler {
 
 func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripID api.TripId) {
 	tripScan, err := h.getUsecase.Get(r.Context(), tripID)
-
 	if err != nil {
 		status, problem := domainerror.Problem(err)
 		if status >= http.StatusInternalServerError {

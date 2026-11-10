@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	triphttp "github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/finish"
-	"go.uber.org/mock/gomock"
 )
 
 func TestFinishTripSuccess(t *testing.T) {
@@ -148,7 +149,7 @@ func TestFinishTripErrors(t *testing.T) {
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatal(err)
 			}
-			if body.Code != tt.code || body.Status != int32(tt.status) {
+			if body.Code != tt.code || int(body.Status) != tt.status {
 				t.Errorf("problem=%+v want=%d %s", body, tt.status, tt.code)
 			}
 			if body.Instance == nil || *body.Instance != path {

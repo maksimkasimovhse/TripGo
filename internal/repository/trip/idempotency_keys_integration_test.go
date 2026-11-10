@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/idempotency"
 	"github.com/maksimkasimovhse/TripGo/internal/model"
 	"github.com/maksimkasimovhse/TripGo/internal/repository/trip"

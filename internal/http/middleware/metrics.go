@@ -29,7 +29,7 @@ func Metrics(router chi.Router, provider metric.MeterProvider) (func(http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
 			writer := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
-			route := "unmatched"
+			route := unmatchedRoute
 			match := chi.NewRouteContext()
 			if router.Match(match, r.Method, r.URL.Path) {
 				route = match.RoutePattern()

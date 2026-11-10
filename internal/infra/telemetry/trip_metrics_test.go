@@ -42,13 +42,13 @@ func TestTripMetrics(t *testing.T) {
 			for _, measurement := range scope.Metrics {
 				found[measurement.Name] = true
 				switch measurement.Name {
-				case "tripgo.trips.created", "tripgo.trips.completed":
+				case createdMetricName, "tripgo.trips.completed":
 					sum, ok := measurement.Data.(metricdata.Sum[int64])
 					if !ok || !sum.IsMonotonic || len(sum.DataPoints) != 1 {
 						t.Fatalf("unexpected business counter: %+v", measurement)
 					}
 					want := int64(1)
-					if measurement.Name == "tripgo.trips.created" {
+					if measurement.Name == createdMetricName {
 						want = 2
 					}
 					if sum.DataPoints[0].Value != want || sum.DataPoints[0].Attributes.Len() != 0 {

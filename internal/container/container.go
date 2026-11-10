@@ -10,6 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
 	"github.com/maksimkasimovhse/TripGo/internal/config"
 	"github.com/maksimkasimovhse/TripGo/internal/generated"
 	httpmiddleware "github.com/maksimkasimovhse/TripGo/internal/http/middleware"
@@ -25,8 +28,6 @@ import (
 	createuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/create"
 	finishuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/finish"
 	getuc "github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
-	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type Container struct {
@@ -48,7 +49,7 @@ func New(ctx context.Context, logger *slog.Logger, cfgEnv *config.Config) (Conta
 		if ready {
 			return
 		}
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfgEnv.ShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfgEnv.ShutdownTimeout)
 		defer cancel()
 		if err := resources.Close(shutdownCtx); err != nil {
 			logger.ErrorContext(shutdownCtx, "telemetry shutdown failed", "error", err)
@@ -126,8 +127,18 @@ func (c *Container) Close(ctx context.Context) error {
 	if c.metrics != nil {
 		metricsErr = c.metrics.Shutdown(ctx)
 	}
+	var poolErr error
 	if c.pool != nil {
-		c.pool.Close()
+		closed := make(chan struct{})
+		go func() {
+			c.pool.Close()
+			close(closed)
+		}()
+		select {
+		case <-closed:
+		case <-ctx.Done():
+			poolErr = ctx.Err()
+		}
 	}
-	return errors.Join(metricsErr, c.tracing.Shutdown(ctx))
+	return errors.Join(metricsErr, poolErr, c.tracing.Shutdown(ctx))
 }

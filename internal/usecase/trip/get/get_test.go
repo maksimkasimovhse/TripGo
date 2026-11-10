@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/mock/gomock"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/usecase/trip/get"
-
-	"go.uber.org/mock/gomock"
 )
 
 func TestGetSuccess(t *testing.T) {
@@ -37,7 +37,6 @@ func TestGetSuccess(t *testing.T) {
 	uc := get.New(repo)
 
 	got, err := uc.Get(ctx, id)
-
 	if err != nil {
 		t.Fatalf("Get() returned unexpected error: %v", err)
 	}

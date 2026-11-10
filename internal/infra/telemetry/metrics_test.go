@@ -25,12 +25,12 @@ func (r *metricsReceiver) Export(_ context.Context, request *collectormetrics.Ex
 }
 
 func TestMetricsExport(t *testing.T) {
-	for _, protocol := range []string{"grpc", "http/protobuf"} {
+	for _, protocol := range []string{grpcProtocol, httpProtobufProtocol} {
 		t.Run(protocol, func(t *testing.T) {
 			clearMetricsEnv(t)
 			requests := make(chan *collectormetrics.ExportMetricsServiceRequest, 1)
 			var endpoint string
-			if protocol == "grpc" {
+			if protocol == grpcProtocol {
 				listener, err := net.Listen("tcp", "127.0.0.1:0")
 				if err != nil {
 					t.Fatal(err)
@@ -91,14 +91,14 @@ func TestMetricsExport(t *testing.T) {
 				for _, attr := range resource.Resource.Attributes {
 					attrs[attr.Key] = attr.Value.GetStringValue()
 				}
-				if attrs["service.name"] != "trip-service" || attrs["service.namespace"] != "tripgo" || attrs["service.version"] != Version || attrs["deployment.environment"] != "local" {
+				if attrs["service.name"] != expectedServiceName || attrs["service.namespace"] != "tripgo" || attrs["service.version"] != Version || attrs["deployment.environment"] != "local" {
 					t.Errorf("unexpected resource: %v", attrs)
 				}
 				if len(resource.ScopeMetrics) != 1 || len(resource.ScopeMetrics[0].Metrics) != 1 {
 					t.Fatalf("unexpected exported metrics: %v", resource.ScopeMetrics)
 				}
 				measurement := resource.ScopeMetrics[0].Metrics[0]
-				if measurement.Name != "tripgo.trips.created" || measurement.GetSum() == nil || len(measurement.GetSum().DataPoints) != 1 || measurement.GetSum().DataPoints[0].GetAsInt() != 3 {
+				if measurement.Name != createdMetricName || measurement.GetSum() == nil || len(measurement.GetSum().DataPoints) != 1 || measurement.GetSum().DataPoints[0].GetAsInt() != 3 {
 					t.Errorf("unexpected exported metric: %v", measurement)
 				}
 			default:
@@ -109,7 +109,7 @@ func TestMetricsExport(t *testing.T) {
 }
 
 func TestMetricsWithoutCollector(t *testing.T) {
-	for _, protocol := range []string{"grpc", "http/protobuf"} {
+	for _, protocol := range []string{grpcProtocol, httpProtobufProtocol} {
 		t.Run(protocol, func(t *testing.T) {
 			clearMetricsEnv(t)
 			t.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", protocol)

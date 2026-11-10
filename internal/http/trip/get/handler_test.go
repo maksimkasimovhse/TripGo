@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	gomock "go.uber.org/mock/gomock"
+
 	"github.com/maksimkasimovhse/TripGo/internal/domain/trip"
 	api "github.com/maksimkasimovhse/TripGo/internal/generated"
 	triphttp "github.com/maksimkasimovhse/TripGo/internal/http/trip"
 	"github.com/maksimkasimovhse/TripGo/internal/http/trip/get"
-	gomock "go.uber.org/mock/gomock"
 )
 
 func TestGetSuccess(t *testing.T) {
@@ -208,7 +209,7 @@ func TestGetTripErrors(t *testing.T) {
 			if body.Code != tt.wantCode {
 				t.Errorf("Code = %q, want %q", body.Code, tt.wantCode)
 			}
-			if body.Status != int32(tt.wantStatus) {
+			if int(body.Status) != tt.wantStatus {
 				t.Errorf("body.Status = %d, want %d", body.Status, tt.wantStatus)
 			}
 			if body.Detail == nil {

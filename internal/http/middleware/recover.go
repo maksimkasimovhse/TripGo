@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+
 	"github.com/maksimkasimovhse/TripGo/internal/http/respond"
 )
 

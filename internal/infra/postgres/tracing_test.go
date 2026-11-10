@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
+const testTripTable = "trips"
+
 func TestQueryTracing(t *testing.T) {
 	t.Parallel()
 
@@ -20,9 +22,9 @@ func TestQueryTracing(t *testing.T) {
 		operation  string
 		collection string
 	}{
-		{"SELECT id FROM trips WHERE id = $1", "SELECT", "trips"},
+		{"SELECT id FROM trips WHERE id = $1", "SELECT", testTripTable},
 		{"INSERT INTO trip_status_history (trip_id) VALUES ($1)", "INSERT", "trip_status_history"},
-		{"UPDATE trips SET status = $1", "UPDATE", "trips"},
+		{"UPDATE trips SET status = $1", "UPDATE", testTripTable},
 		{"DELETE FROM idempotency_keys WHERE id = $1", "DELETE", "idempotency_keys"},
 	} {
 		t.Run(tt.operation+" "+tt.collection, func(t *testing.T) {

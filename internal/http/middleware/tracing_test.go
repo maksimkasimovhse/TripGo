@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 )
 
 func TestTracing(t *testing.T) {
@@ -38,7 +39,7 @@ func TestTracing(t *testing.T) {
 			logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 			router := chi.NewRouter()
 			router.Use(middleware.Recover(logger), middleware.Tracing(provider), middleware.RequestLogging(logger))
-			router.Get("/trips/{tripId}", func(w http.ResponseWriter, r *http.Request) {
+			router.Get(testTripRoute, func(w http.ResponseWriter, r *http.Request) {
 				_, child := provider.Tracer("test").Start(r.Context(), "child")
 				child.End()
 				if tt.panic {
@@ -74,7 +75,7 @@ func TestTracing(t *testing.T) {
 			for _, attr := range server.Attributes() {
 				attrs[string(attr.Key)] = attr.Value.AsInterface()
 			}
-			if attrs["http.route"] != "/trips/{tripId}" || attrs["http.response.status_code"] != int64(tt.status) {
+			if attrs["http.route"] != testTripRoute || attrs["http.response.status_code"] != int64(tt.status) {
 				t.Errorf("HTTP span attributes = %+v", attrs)
 			}
 			if tt.wantCode == codes.Error && attrs["error.type"] == nil {

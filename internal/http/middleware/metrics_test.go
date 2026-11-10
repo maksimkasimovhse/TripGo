@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"github.com/maksimkasimovhse/TripGo/internal/http/middleware"
 )
 
 func TestHTTPMetrics(t *testing.T) {
@@ -38,7 +39,7 @@ func TestHTTPMetrics(t *testing.T) {
 				t.Fatal(err)
 			}
 			router.Use(middleware.Recover(slog.New(slog.DiscardHandler)), middleware.RequestLogging(slog.New(slog.DiscardHandler)), metrics)
-			router.Post("/trips/{tripId}", func(w http.ResponseWriter, r *http.Request) {
+			router.Post(testTripRoute, func(w http.ResponseWriter, r *http.Request) {
 				assertActiveRequests(t, reader, 1)
 				if tt.panics {
 					panic("test panic")
@@ -69,7 +70,7 @@ func TestHTTPMetrics(t *testing.T) {
 					route, _ := point.Attributes.Value("http.route")
 					method, _ := point.Attributes.Value("http.request.method")
 					status, _ := point.Attributes.Value("http.response.status_code")
-					if measurement.Unit != "s" || point.Count != 1 || point.Sum < 0 || route.AsString() != "/trips/{tripId}" || method.AsString() != "POST" || status.AsInt64() != int64(tt.status) {
+					if measurement.Unit != "s" || point.Count != 1 || point.Sum < 0 || route.AsString() != testTripRoute || method.AsString() != "POST" || status.AsInt64() != int64(tt.status) {
 						t.Errorf("unexpected HTTP measurement: %+v", measurement)
 					}
 				}
@@ -101,7 +102,7 @@ func assertActiveRequests(t *testing.T, reader *sdkmetric.ManualReader, want int
 			}
 			point := sum.DataPoints[0]
 			route, _ := point.Attributes.Value("http.route")
-			if point.Value != want || route.AsString() != "/trips/{tripId}" || point.Attributes.Len() != 2 {
+			if point.Value != want || route.AsString() != testTripRoute || point.Attributes.Len() != 2 {
 				t.Errorf("active requests = %+v, want %d with route template", point, want)
 			}
 			return

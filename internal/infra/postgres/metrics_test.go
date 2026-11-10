@@ -55,7 +55,7 @@ func TestQueryMetricsWithoutSampledTrace(t *testing.T) {
 			operation, _ := point.Attributes.Value("db.operation.name")
 			collection, _ := point.Attributes.Value("db.collection.name")
 			errorType, hasError := point.Attributes.Value("error.type")
-			if point.Count != 1 || point.Sum < 0 || operation.AsString() != "SELECT" || collection.AsString() != "trips" || errorType.AsString() != tt.errorType || hasError != (tt.errorType != "") {
+			if point.Count != 1 || point.Sum < 0 || operation.AsString() != "SELECT" || collection.AsString() != testTripTable || errorType.AsString() != tt.errorType || hasError != (tt.errorType != "") {
 				t.Errorf("unexpected database point: %+v", point)
 			}
 		})
